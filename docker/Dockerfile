@@ -18,7 +18,9 @@ RUN pip3 install \
     tqdm \
     cython \
     pycocotools \
-    traitlets
+    traitlets \
+    pytest \
+    pyzmq
 
 RUN cd ${SRC_DIR} && \
     git clone https://github.com/NVIDIA-AI-IOT/torch2trt && \
@@ -31,7 +33,7 @@ RUN cd ${SRC_DIR} && \
     sed -i 's/self._gst_str(), cv2.CAP_GSTREAMER/self.capture_device/g' jetcam/usb_camera.py && \
     python3 setup.py install
 
-RUN cd / && \
+RUN cd ${SRC_DIR} && \
     git clone https://github.com/NVIDIA-AI-IOT/trt_pose && \
     cd trt_pose && \
     python3 setup.py install
