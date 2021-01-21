@@ -1,0 +1,8 @@
+ROOT_DIR = "/valens-cv"
+PYTHON_DIR = ROOT_DIR + "/valens"
+DATA_DIR = PYTHON_DIR + "/data"
+
+TEST_DATA_DIR = PYTHON_DIR + "/test/data"
+
+POSE_MODEL_WIDTH = 224
+POSE_MODEL_HEIGHT = 224
