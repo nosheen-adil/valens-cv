@@ -10,7 +10,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         unzip \
         zip \
         nano \
-        python3-opencv && \
+        python3-opencv \
+        python3-h5py && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
