@@ -1,22 +1,21 @@
 import cv2
+
 from valens.structures.node import Node
-import time
-from valens.structures.stream import gen_addr_tcp, OutputStream
+from valens.structures.stream import OutputStream
+from valens import constants
 
 class VideoSource(Node):
-    def __init__(self,
-        output_address=gen_addr_tcp(),
-        device_url=0):
-
+    def __init__(self, frame_address, device_url=0, num_outputs=1):
         super().__init__("VideoSource")
-        self.capture = cv2.VideoCapture(device_url)
-        self.output_streams["frame"] = OutputStream(output_address)
+        self.output_streams["frame"] = OutputStream(frame_address, num_outputs=num_outputs)
+        
+        self.capture = None
+        self.device_url = device_url 
+    
+    def prepare(self):
+        self.capture = cv2.VideoCapture(self.device_url)
 
     def process(self):
-        start = time.time()
         ret, frame = self.capture.read()
-
-        s = time.time()
+        frame = cv2.resize(frame, dsize=(constants.POSE_MODEL_WIDTH, constants.POSE_MODEL_HEIGHT))
         self.output_streams["frame"].send(frame)
-        end = time.time()
-        print("send time:", end - s)
