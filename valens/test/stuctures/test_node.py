@@ -14,9 +14,9 @@ def test_sentinel_stop():
 
         def process(self):
             if self.count == self.total_count:
-                self.output_streams["out"].send()
                 self.stop()
                 return
+                
             self.output_streams["out"].send({"hey":"there"})
             self.count += 1
 
@@ -27,7 +27,7 @@ def test_sentinel_stop():
 
         def process(self):
             result = self.input_streams["in"].recv()
-            if result == None:
+            if result is None:
                 self.stop()
                 return
 

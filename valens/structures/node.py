@@ -13,9 +13,16 @@ class Node(ABC, Process):
         self.total_time = 0
         self.iterations = 0
         self.stopped = False
+        self.max_iterations = None
 
     def stop(self):
         self.stopped = True
+
+        for s in self.output_streams.values():
+            s.send()
+
+    def set_max_iterations(self, max_iterations):
+        self.max_iterations = max_iterations
 
     def set_max_fps(self, max_fps):
         self.max_fps = max_fps
@@ -44,6 +51,9 @@ class Node(ABC, Process):
 
             self.total_time += process_time
             self.iterations += 1
+
+            if self.max_iterations and self.iterations > self.max_iterations:
+                break
         print(self.name + ": stopped with average fps of", self.average_fps())
 
     def prepare(self):
