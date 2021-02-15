@@ -1,0 +1,35 @@
+{ 
+    "user_id": "nosheen", 
+    "exercise" : "push-up", 
+    "timestamp" : "2021-02-14T20:21:55+0000", 
+    "pose" : { 
+        "nose" : { 
+            "x" : 0.111, 
+            "y" : 0.437 
+        }, 
+        "neck" : { 
+            "x" : 0.123, 
+            "y" : 0.562 
+        }, 
+        "right_hip" : { 
+            "x" : 0.981, 
+            "y" : 0.723 
+        } 
+    }, 
+    "feedback" : { 
+        "nose" : { 
+            "evaluation" : "good" 
+        },
+        "neck" : { 
+            "evaluation" : "bad", 
+            "correction" : { 
+                "x" : 0.156, 
+                "y" : 0.456 
+            } 
+        }, 
+        "right_hip" : { 
+            "evaluation" : "good" 
+        }
+    }, 
+    "comments" : "lower neck" 
+} 
