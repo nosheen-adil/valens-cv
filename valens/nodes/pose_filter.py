@@ -34,6 +34,10 @@ class PoseFilter(Node):
 
     def process(self):
         frame = self.input_streams["frame"].recv()
+        if frame is None:
+            self.stop()
+            return
+
         data = self.preprocess(frame)
         cmap, paf = self.model_trt(data)
         cmap, paf = cmap.detach().cpu(), paf.detach().cpu()

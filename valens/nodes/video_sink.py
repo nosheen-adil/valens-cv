@@ -16,8 +16,16 @@ class VideoSink(Node):
 
     def process(self):
         frame = self.input_streams["frame"].recv()
+        if frame is None:
+            self.stop()
+            return
+
         if "pose" in self.input_streams:
             k = self.input_streams["pose"].recv()
+            if k is None:
+                self.stop()
+                return
+
             pose.scale(k, frame.shape[1], frame.shape[0])
             pose.draw_on_image(self.topology, frame, k)
         cv2.imshow('frame', frame)
