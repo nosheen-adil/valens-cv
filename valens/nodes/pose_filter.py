@@ -1,6 +1,6 @@
 from valens.structures.node import Node
 from valens.structures.stream import InputStream, OutputStream
-from valens.structures import keypoints
+from valens.structures import pose
 
 import torch
 import torchvision.transforms as transforms
@@ -16,13 +16,13 @@ class PoseFilter(Node):
     def __init__(self, frame_address, keypoints_address, model_path, pose_path):
         super().__init__("PoseFilter")
         self.input_streams["frame"] = InputStream(frame_address)
-        self.output_streams["keypoints"] = OutputStream(keypoints_address)
+        self.output_streams["pose"] = OutputStream(keypoints_address)
 
         self.model_path = model_path
         self.pose_path = pose_path
 
     def prepare(self):
-        self.parse_objects = ParseObjects(keypoints.get_topology(self.pose_path))
+        self.parse_objects = ParseObjects(pose.get_topology(self.pose_path))
 
         self.model_trt = TRTModule()
         print(self.name + ": Loading model")
@@ -38,8 +38,8 @@ class PoseFilter(Node):
         cmap, paf = self.model_trt(data)
         cmap, paf = cmap.detach().cpu(), paf.detach().cpu()
         counts, objects, peaks = self.parse_objects(cmap, paf)
-        k = keypoints.trt_to_json(counts, objects, peaks)
-        self.output_streams["keypoints"].send(k)
+        k = pose.trt_to_json(counts, objects, peaks)
+        self.output_streams["pose"].send(k)
         
     def preprocess(self, frame):
         global device

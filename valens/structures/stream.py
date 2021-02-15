@@ -72,7 +72,7 @@ class OutputStream(Stream):
         self.socket = self.context.socket(zmq.PUSH)
         self.socket.bind(self.address)
 
-    def send(self, msg):
+    def send(self, msg=None):
         for i in range(self.num_outputs):
             if type(msg) == np.ndarray:
                 self.send_array(msg, copy=False)

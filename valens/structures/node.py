@@ -9,14 +9,14 @@ class Node(ABC, Process):
         self.name = name
         self.input_streams = {}
         self.output_streams = {}
-        self.stop_event = None
         self.max_fps = None
         self.total_time = 0
         self.iterations = 0
+        self.stopped = False
 
-    def set_stop_event(self, stop_event):
-        self.stop_event = stop_event
-    
+    def stop(self):
+        self.stopped = True
+
     def set_max_fps(self, max_fps):
         self.max_fps = max_fps
         
@@ -24,14 +24,14 @@ class Node(ABC, Process):
         return self.iterations / self.total_time
 
     def run(self):
-        print("Running", self.name)
+        print(self.name + ": running")
         for _, stream in self.input_streams.items(): stream.start()
         for _, stream in self.output_streams.items(): stream.start()
         self.prepare()
         if self.max_fps is not None:
             period = 1 / self.max_fps
 
-        while self.stop_event is None or not self.stop_event.is_set():
+        while not self.stopped:
             start = time.time()
             self.process()
             end = time.time()
@@ -44,7 +44,7 @@ class Node(ABC, Process):
 
             self.total_time += process_time
             self.iterations += 1
-        print("Stopped", self.name, "with average fps of", self.average_fps())
+        print(self.name + ": stopped with average fps of", self.average_fps())
 
     def prepare(self):
         pass
