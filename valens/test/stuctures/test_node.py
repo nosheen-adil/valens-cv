@@ -19,6 +19,7 @@ def test_sentinel_stop():
             
             self.output_streams["out"].send({"hey":"there"})
             self.count += 1
+            time.sleep(0.1)
 
     class Sink(Node):
         def __init__(self, name, input_addr=gen_addr_ipc("test")):
@@ -31,6 +32,6 @@ def test_sentinel_stop():
                 self.stop()
                 return
 
-    t = [Source("source", total_count=200), Sink("sink")]
+    t = [Source("source", total_count=10), Sink("sink")]
     for ti in t: ti.start()
     for ti in t: ti.join()

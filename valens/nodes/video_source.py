@@ -1,8 +1,8 @@
-import cv2
-
+from valens import constants
 from valens.structures.node import Node
 from valens.structures.stream import OutputStream
-from valens import constants
+
+import cv2
 
 class VideoSource(Node):
     def __init__(self, frame_address, device_url=0, num_outputs=1, resize=True):
@@ -21,7 +21,7 @@ class VideoSource(Node):
         if not ret:
             self.stop()
             return
-        
+
         if self.resize:
             frame = cv2.resize(frame, dsize=(constants.POSE_MODEL_WIDTH, constants.POSE_MODEL_HEIGHT))
         

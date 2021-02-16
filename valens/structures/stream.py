@@ -1,7 +1,7 @@
-import zmq
-from enum import Enum
 from abc import ABC, abstractmethod
+from enum import Enum
 import numpy as np
+import zmq
 
 class Protocol(Enum):
     INPROC="inproc"
@@ -41,17 +41,18 @@ class InputStream(Stream):
 
     def start(self):
         self.context = zmq.Context()
-        self.socket = self.context.socket(zmq.PULL)
+        self.socket = self.context.socket(zmq.REQ)
         self.socket.connect(self.address)
 
     def recv(self):
+        self.socket.send(b"req")
+
         md = self.socket.recv_json()
         if (md["type"] == "ndarray"):
             return self.recv_array(md)
         else:
             assert(md["type"] == "json")
             msg = self.socket.recv_json()
-            more = self.socket.getsockopt(zmq.RCVMORE)
             return msg
         
     def recv_array(self, md, flags=0, copy=True, track=False):
@@ -69,11 +70,12 @@ class OutputStream(Stream):
     
     def start(self):
         self.context = zmq.Context()
-        self.socket = self.context.socket(zmq.PUSH)
+        self.socket = self.context.socket(zmq.REP)
         self.socket.bind(self.address)
 
     def send(self, msg=None):
         for i in range(self.num_outputs):
+            req = self.socket.recv()
             if type(msg) == np.ndarray:
                 self.send_array(msg, copy=False)
             else:

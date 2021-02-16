@@ -1,19 +1,20 @@
+from valens import constants
 from valens.structures.node import Node
-from valens.structures.stream import InputStream, OutputStream
 from valens.structures import pose
+from valens.structures.stream import InputStream, OutputStream
 
+import cv2
+import json
+import numpy as np
+import PIL.Image
 import torch
 import torchvision.transforms as transforms
+from torch2trt import TRTModule
 import trt_pose.coco
 from trt_pose.parse_objects import ParseObjects
-import json
-from torch2trt import TRTModule
-import cv2
-import PIL.Image
-import numpy as np
 
 class PoseFilter(Node):
-    def __init__(self, frame_address, pose_address, model_path, pose_path):
+    def __init__(self, frame_address, pose_address, model_path=constants.POSE_MODEL_TRT_WEIGHTS, pose_path=constants.POSE_JSON):
         super().__init__("PoseFilter")
         self.input_streams["frame"] = InputStream(frame_address)
         self.output_streams["pose"] = OutputStream(pose_address)

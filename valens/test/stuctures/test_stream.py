@@ -1,7 +1,9 @@
-import pytest
 from valens.structures import stream
-import time
+
+import pytest
 import numpy as np
+import time
+from torch.multiprocessing import Process
 
 def test_gen_addr_inproc():
     address = stream.gen_addr_inproc("test")
@@ -25,14 +27,22 @@ def test_send_recv():
     input_stream = stream.InputStream(address)
     output_stream = stream.OutputStream(address)
 
-    input_stream.start()
-    output_stream.start()
+    def f_input(input_stream):
+        input_stream.start()
+        input_msg = {"hello" : "friend"}
+        output_msg = input_stream.recv()
+        assert input_msg == output_msg
+    
+    def f_output(output_stream):
+        output_stream.start()
+        input_msg = {"hello" : "friend"}
+        output_stream.send(input_msg)
 
-    input_msg = {"hello" : "friend"}
-    output_stream.send(input_msg)
-
-    output_msg = input_stream.recv()
-    assert input_msg == output_msg
+    p = [Process(target=f_input, args=(input_stream,)),
+        Process(target=f_output, args=(output_stream,))]
+    
+    [pi.start() for pi in p]
+    [pi.join() for pi in p]
 
 def test_send_recv_multiple():
     address = stream.gen_addr_ipc("test")
@@ -40,26 +50,35 @@ def test_send_recv_multiple():
     input_stream = stream.InputStream(address)
     output_stream = stream.OutputStream(address)
 
-    input_stream.start()
-    output_stream.start()
+    def f_input(input_stream):
+        input_stream.start()
+        
+        msg = input_stream.recv()
+        assert msg["data"] == 1
+
+        msg = input_stream.recv()
+        assert msg["data"] == 2
+
+        msg = input_stream.recv()
+        assert msg["data"] == 3
+        
+    def f_output(output_stream):
+        output_stream.start()
+        
+        msg = {"data" : 1}
+        output_stream.send(msg)
+
+        msg["data"] = 2
+        output_stream.send(msg)
+
+        msg["data"] = 3
+        output_stream.send(msg)
+
+    p = [Process(target=f_input, args=(input_stream,)),
+        Process(target=f_output, args=(output_stream,))]
     
-    msg = {"data" : 1}
-    output_stream.send(msg)
-
-    msg["data"] = 2
-    output_stream.send(msg)
-
-    msg = input_stream.recv()
-    assert msg["data"] == 1
-
-    msg["data"] = 3
-    output_stream.send(msg)
-
-    msg = input_stream.recv()
-    assert msg["data"] == 2
-
-    msg = input_stream.recv()
-    assert msg["data"] == 3
+    [pi.start() for pi in p]
+    [pi.join() for pi in p]
 
 def test_multiple_outputs():
     address = stream.gen_addr_ipc("test")
@@ -68,19 +87,25 @@ def test_multiple_outputs():
     input_stream2 = stream.InputStream(address)
     output_stream = stream.OutputStream(address, num_outputs=2)
 
-    output_stream.start()
-    input_stream1.start()
-    input_stream2.start()
-    time.sleep(1) # sleep to allow both input streams to connect to output stream
+    def f_input(input_stream):
+        input_stream.start()
+        
+        msg = input_stream.recv()
+        assert msg["data"] == 1
 
-    msg = {"data" : 1}
-    output_stream.send(msg)
+    def f_output(output_stream):
+        output_stream.start()
+        
+        msg = {"data" : 1}
+        output_stream.send(msg)
 
-    msg1 = input_stream1.recv()
-    msg2 = input_stream2.recv()
+    p = [Process(target=f_input, args=(input_stream1,)),
+        Process(target=f_input, args=(input_stream2,)),
+        Process(target=f_output, args=(output_stream,))]
+    
+    [pi.start() for pi in p]
+    [pi.join() for pi in p]
 
-    assert msg1 == msg
-    assert msg2 == msg
 
 def test_send_recv_ndarray():
     address = stream.gen_addr_ipc("test")
@@ -88,12 +113,20 @@ def test_send_recv_ndarray():
     input_stream = stream.InputStream(address)
     output_stream = stream.OutputStream(address)
 
-    input_stream.start()
-    output_stream.start()
+    def f_input(input_stream):
+        input_stream.start()
+        input_msg = np.array([[0, 1, 0], [1, 2, 3], [10, 9, 8]], dtype=np.int32)
+        output_msg = input_stream.recv()
+        np.testing.assert_array_equal(input_msg, output_msg)
+
+    def f_output(output_stream):
+        output_stream.start()
+        input_msg = np.array([[0, 1, 0], [1, 2, 3], [10, 9, 8]], dtype=np.int32)
+        output_stream.send(input_msg)
+
+    p = [Process(target=f_input, args=(input_stream,)),
+        Process(target=f_output, args=(output_stream,))]
     
-    input_msg = np.array([[0, 1, 0], [1, 2, 3], [10, 9, 8]], dtype=np.int32)
-
-    output_stream.send(input_msg)
-    output_msg = input_stream.recv()
-
-    np.testing.assert_array_equal(input_msg, output_msg)
+    [pi.start() for pi in p]
+    [pi.join() for pi in p]
+    

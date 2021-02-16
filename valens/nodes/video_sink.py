@@ -1,11 +1,11 @@
-import cv2
-import trt_pose.coco
-import json
-
 from valens import constants
+from valens.structures import pose
 from valens.structures.node import Node
 from valens.structures.stream import InputStream
-from valens.structures import pose
+
+import cv2
+import json
+import trt_pose.coco
 
 class VideoSink(Node):
     def __init__(self, frame_address, pose_address=None, pose_path=constants.POSE_JSON):
@@ -18,6 +18,8 @@ class VideoSink(Node):
     def process(self):
         frame = self.input_streams["frame"].recv()
         if frame is None:
+            p = self.input_streams["pose"].recv()
+            assert(p is None)
             self.stop()
             return
 

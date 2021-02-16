@@ -1,4 +1,5 @@
 from valens.structures.stream import InputStream, OutputStream
+
 from abc import ABC, abstractmethod
 import time
 from torch.multiprocessing import Process
