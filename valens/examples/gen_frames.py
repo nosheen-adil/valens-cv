@@ -1,7 +1,7 @@
 import valens
-from valens.structures.stream import InputStream, OutputStream, gen_addr_ipc, gen_addr_tcp
-from valens.nodes import *
 from valens import constants
+from valens.nodes import *
+from valens.structures.stream import InputStream, OutputStream, gen_addr_ipc, gen_addr_tcp
 
 import argparse
 import torch.multiprocessing
@@ -9,7 +9,7 @@ from torch.multiprocessing import set_start_method
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Generate a two stage pipeline to stream video frames')
-    parser.add_argument('--input_url', type=str, default=0, help = 'URL for OpenCV VideoCapture')
+    parser.add_argument('--input_url', default=0, help='URL for OpenCV VideoCapture')
     args = parser.parse_args()
 
     torch.multiprocessing.freeze_support()
@@ -28,4 +28,3 @@ if __name__ == '__main__':
 
     for process in processes: process.start()
     for process in processes: process.join()
-

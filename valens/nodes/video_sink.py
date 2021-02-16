@@ -2,12 +2,13 @@ import cv2
 import trt_pose.coco
 import json
 
+from valens import constants
 from valens.structures.node import Node
 from valens.structures.stream import InputStream
 from valens.structures import pose
 
 class VideoSink(Node):
-    def __init__(self, frame_address, pose_address=None, pose_path=None):
+    def __init__(self, frame_address, pose_address=None, pose_path=constants.POSE_JSON):
         super().__init__("VideoSink")
         self.input_streams["frame"] = InputStream(frame_address)
         if pose_address is not None:
@@ -21,12 +22,12 @@ class VideoSink(Node):
             return
 
         if "pose" in self.input_streams:
-            k = self.input_streams["pose"].recv()
-            if k is None:
+            p = self.input_streams["pose"].recv()
+            if p is None:
                 self.stop()
                 return
 
-            pose.scale(k, frame.shape[1], frame.shape[0])
-            pose.draw_on_image(self.topology, frame, k)
+            pose.draw_on_image(p, frame, self.topology)
+            
         cv2.imshow('frame', frame)
         cv2.waitKey(1)

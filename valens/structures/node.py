@@ -28,6 +28,8 @@ class Node(ABC, Process):
         self.max_fps = max_fps
         
     def average_fps(self):
+        if self.total_time == 0:
+            return 0
         return self.iterations / self.total_time
 
     def run(self):
@@ -51,6 +53,7 @@ class Node(ABC, Process):
 
             self.total_time += process_time
             self.iterations += 1
+            # print(self.name + ": fps =", self.average_fps())
 
             if self.max_iterations and self.iterations > self.max_iterations:
                 break

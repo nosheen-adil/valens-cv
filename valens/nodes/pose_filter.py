@@ -13,10 +13,10 @@ import PIL.Image
 import numpy as np
 
 class PoseFilter(Node):
-    def __init__(self, frame_address, keypoints_address, model_path, pose_path):
+    def __init__(self, frame_address, pose_address, model_path, pose_path):
         super().__init__("PoseFilter")
         self.input_streams["frame"] = InputStream(frame_address)
-        self.output_streams["pose"] = OutputStream(keypoints_address)
+        self.output_streams["pose"] = OutputStream(pose_address)
 
         self.model_path = model_path
         self.pose_path = pose_path
@@ -42,8 +42,8 @@ class PoseFilter(Node):
         cmap, paf = self.model_trt(data)
         cmap, paf = cmap.detach().cpu(), paf.detach().cpu()
         counts, objects, peaks = self.parse_objects(cmap, paf)
-        k = pose.trt_to_json(counts, objects, peaks)
-        self.output_streams["pose"].send(k)
+        p = pose.nn_to_numpy(counts, objects, peaks)
+        self.output_streams["pose"].send(p)
         
     def preprocess(self, frame):
         global device

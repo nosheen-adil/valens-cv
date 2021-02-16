@@ -16,7 +16,7 @@ def test_sentinel_stop():
             if self.count == self.total_count:
                 self.stop()
                 return
-                
+            
             self.output_streams["out"].send({"hey":"there"})
             self.count += 1
 
@@ -31,6 +31,6 @@ def test_sentinel_stop():
                 self.stop()
                 return
 
-    t = [Source("source", total_count=100), Sink("sink")]
+    t = [Source("source", total_count=200), Sink("sink")]
     for ti in t: ti.start()
     for ti in t: ti.join()
