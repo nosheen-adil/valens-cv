@@ -54,7 +54,7 @@ def nn_to_numpy(object_counts, objects, normalized_peaks, min_keypoints=10):
 
     return data
 
-def scale(p, width, height, round_coords=False):
+def scale(p, width=constants.POSE_MODEL_WIDTH, height=constants.POSE_MODEL_HEIGHT, round_coords=False):
     s = p.copy()
     s[:, 0] *= width
     s[:, 1] *= height
@@ -68,13 +68,16 @@ def scale(p, width, height, round_coords=False):
 def draw_on_image(p, frame, topology, color=(0, 255, 0)):
     s = scale(p, frame.shape[0], frame.shape[1], round_coords=True)
     nan = s == -1
-    K = topology.shape[0]
+    K = len(topology)
+
     for k in range(p.shape[0]):
-        if not np.any(nan[k, :]):
-            cv2.circle(frame, (s[k, 0], s[k, 1]), 3, color, 2)
+        # if not np.any(nan[k, :]):
+        cv2.circle(frame, (s[k, 0], s[k, 1]), 3, color, 2)
 
     for k in range(K):
-        c_a = int(topology[k][2])
-        c_b = int(topology[k][3])
-        if not np.any(nan[c_a, :]) and not np.any(nan[c_b, :]):
-            cv2.line(frame, (s[c_a, 0], s[c_a, 1]), (s[c_b, 0], s[c_b, 1]), color, 2)
+        c_a = topology[k][0]
+        c_b = topology[k][1]
+
+        # if not np.any(nan[c_a, :]) and not np.any(nan[c_b, :]):
+        # if not keypoints or (Keypoints(c_a) in keypoints and Keypoints(c_b) in keypoints):
+        cv2.line(frame, (s[c_a, 0], s[c_a, 1]), (s[c_b, 0], s[c_b, 1]), color, 2)

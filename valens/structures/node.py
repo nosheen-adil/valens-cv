@@ -57,6 +57,7 @@ class Node(ABC, Process):
             # print(self.name + ": fps =", self.average_fps())
 
             if self.max_iterations and self.iterations > self.max_iterations:
+                self.stop()
                 break
         print(self.name + ": stopped with average fps of", self.average_fps())
 

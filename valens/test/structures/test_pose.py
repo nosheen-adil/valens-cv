@@ -1,5 +1,5 @@
 from valens import constants
-from valens.structures import pose
+from valens.structures import pose, sequence
 from valens.structures.stream import OutputStream, gen_addr_ipc
 from valens.nodes import *
 
@@ -18,6 +18,7 @@ def test_trt_to_image():
         objects = data["objects"][:]
         peaks = data["peaks"][:]
         expected_frame = data["frame"][:]
+        print(expected_frame.shape, expected_frame.dtype)
     
     topology = pose.get_topology()
 
