@@ -22,3 +22,8 @@ var/
 
 # Sphinx documentation
 docs/_build/
+
+# Data
+valens/data/outputs/
+valens/data/sequences/
+valens/data/tmp/
