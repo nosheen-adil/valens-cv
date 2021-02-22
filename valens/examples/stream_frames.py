@@ -9,7 +9,8 @@ from torch.multiprocessing import set_start_method
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Generate a two stage pipeline to stream video frames')
-    parser.add_argument('--input_url', default=0, help='URL for OpenCV VideoCapture')
+    parser.add_argument('--name', default='', help='Name of input video')
+    parser.add_argument('--recordings_dir', default=constants.DATA_DIR + '/recordings', help='Directory for recordings')
     args = parser.parse_args()
 
     torch.multiprocessing.freeze_support()
@@ -17,10 +18,11 @@ if __name__ == '__main__':
     
     processes = [None] * 2
     frame_address = gen_addr_ipc('frame')
+    input_url = args.recordings_dir + '/' + args.name + '.mp4'
 
     processes[0] = VideoSource(
                         frame_address=frame_address,
-                        device_url=args.input_url)
+                        device_url=input_url)
     processes[1] = VideoSink(
                         frame_address=frame_address)
 
