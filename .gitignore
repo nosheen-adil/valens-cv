@@ -27,3 +27,4 @@ docs/_build/
 valens/data/outputs/
 valens/data/sequences/
 valens/data/tmp/
+valens/dtw.cpp
