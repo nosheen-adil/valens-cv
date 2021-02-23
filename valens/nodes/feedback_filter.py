@@ -30,7 +30,7 @@ class Keypoints(Enum):
 
 class Exercise(ABC):
     def __init__(self):
-        self.keypoints = None # change to all keypoints by default
+        self.keypoints = [k for k in Keypoints] # change to all keypoints by default
         self.mask = None
         self.topology = None
         self.in_rep = False
@@ -40,13 +40,8 @@ class Exercise(ABC):
         self.y = 1
         self.t = 0
 
-    def initialize(self, pose):
-        self.calc_side(pose)
-        self.calc_keypoint_mask()
-        self.calc_topology()
-        self.initial = pose[self.mask]
-
-    def calc_side(self, pose):
+    @abstractmethod
+    def calc_keypoints(self, pose):
         pass
 
     def calc_keypoint_mask(self):
@@ -69,23 +64,28 @@ class Exercise(ABC):
 
     def predict(self, pose):
         if self.initial is None:
-            self.initialize(pose)
+            self.initial = pose
             self.t += 1
             return
 
-        filtered = pose[self.mask]
+        # filtered = pose[self.mask]
         if self.in_rep:
-            self.rep.append(filtered)
-            if self.finished(filtered):
+            self.rep.append(pose[self.mask])
+            if self.finished(pose):
                 print('finished!', self.t)
                 self.eval()
                 self.in_rep = False
                 self.rep = []
             else:
                 self.recommend()
-        elif self.started(filtered):
+        elif self.started(pose):
             print('started rep!', self.t)
-            self.rep.append(filtered)
+            if self.mask is None or self.topology is None:
+                self.calc_keypoints(pose)
+                self.calc_keypoint_mask()
+                self.calc_topology()
+            
+            self.rep.append(pose[self.mask])
             self.in_rep = True
 
         self.t += 1
@@ -114,7 +114,7 @@ class BodyweightSquat(Exercise):
         self.ankle = 2
         self.neck = 3
 
-    def calc_side(self, pose):
+    def calc_keypoints(self, pose):
         hip = Keypoints.RHIP.value
         knee = Keypoints.RKNEE.value
 
@@ -127,10 +127,10 @@ class BodyweightSquat(Exercise):
             self.keypoints = [Keypoints.LHIP, Keypoints.LKNEE, Keypoints.LANKLE, Keypoints.NECK]
     
     def started(self, pose):
-        return pose[self.neck, self.y] > (1 - self.drop_percent * (1 - self.initial[self.neck, self.y]))
+        return pose[Keypoints.NECK.value, self.y] > (1 - self.drop_percent * (1 - self.initial[Keypoints.NECK.value, self.y]))
 
     def finished(self, pose):
-        return pose[self.neck, self.y] <= (1 - self.drop_percent * (1 - self.initial[self.neck, self.y]))
+        return pose[Keypoints.NECK.value, self.y] <= (1 - self.drop_percent * (1 - self.initial[Keypoints.NECK.value, self.y]))
 
 class FeedbackFilter(Node):
     def __init__(self, pose_address=gen_addr_ipc('pose'), feedback_address=gen_addr_ipc('feedback'), exercise_type=''):
