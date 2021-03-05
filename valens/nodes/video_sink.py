@@ -8,6 +8,7 @@ from abc import abstractmethod
 import cv2
 import json
 import trt_pose.coco
+import numpy as np
 
 class VideoSink(Node):
     def __init__(self, frame_address=None, pose_address=None, exercise_type='', width=constants.POSE_MODEL_WIDTH, height=constants.POSE_MODEL_HEIGHT, node_name='VideoSink'):
@@ -33,17 +34,21 @@ class VideoSink(Node):
                 self.stop()
                 return
         else:
-            frame = np.zeros((width, height, 3), dtype=np.uint8)
+            frame = np.zeros((self.width, self.height, 3), dtype=np.uint8)
 
         if 'pose' in self.input_streams:
             p = self.input_streams['pose'].recv()
             if p is None:
                 self.stop()
                 return
+            if len(p.shape) == 3:
+                colors = [(255, 255, 255), (0, 255, 0)]
+                for i in range(p.shape[0]):
+                    pose.draw_on_image(p[i, :, :], frame, self.topology, color=colors[i])
+            else:
+                # pose.draw_on_image(p[self.keypoint_mask], frame, self.topology, color=(255, 255, 255))
+                pose.draw_on_image(p, frame, self.topology, color=(255, 255, 255))
 
-            p = p[self.keypoint_mask]
-            pose.draw_on_image(p, frame, self.topology)
-            
         self.write(frame)
 
     @abstractmethod

@@ -16,7 +16,7 @@ if __name__ == '__main__':
     parser.add_argument('--fps', default=30, help='Fps of ouput video if saved to mp4')
     parser.add_argument('--recordings_dir', default=constants.DATA_DIR + '/recordings', help='Directory for recordings')
     parser.add_argument('--sequences_dir', default=constants.DATA_DIR + '/sequences', help='Directory for saved sequences')
-    parser.add_argument('--outputs_dir', default=constants.DATA_DIR + '/outputs', help='Directory to store output videos')
+    parser.add_argument('--outputs_dir', default=constants.DATA_DIR + '/outputs/aligned', help='Directory to store output videos')
     args = parser.parse_args()
 
     torch.multiprocessing.freeze_support()
@@ -26,13 +26,27 @@ if __name__ == '__main__':
     feedback_address = gen_addr_ipc("feedback")
     exercise_type = args.input[0:2]
     
+    if args.mp4:
+        video_sink = Mp4FileSink(
+            pose_address=feedback_address,
+            exercise_type=exercise_type,
+            name=args.input,
+            output_dir=args.outputs_dir,
+            fps=int(args.fps))
+    else:
+        video_sink = LocalDisplaySink(
+            pose_address=feedback_address,
+            exercise_type=exercise_type)
+        video_sink.set_max_fps(int(args.fps))
+
     processes = [PoseSource(
                     pose_address=pose_address,
                     name=args.input,
                     input_dir=args.sequences_dir),
                 FeedbackFilter(
                     pose_address=pose_address,
-                    feedback_address=feedback_address)]
+                    feedback_address=feedback_address),
+                video_sink]
 
     for p in processes: p.start()
     for p in processes: p.join()
