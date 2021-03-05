@@ -13,6 +13,8 @@ import math
 import os
 import h5py
 import modern_robotics as mr
+from scipy import ndimage
+import copy
 
 class Keypoints(Enum):
     NOSE = 0
@@ -255,7 +257,8 @@ class Exercise(ABC):
         self.topology = None
         self.in_rep = False
         self.initial = None
-        self.rep = None
+
+        # self.rep = None
         self.prev_rep = None
         self.x = 0
         self.y = 1
@@ -272,6 +275,7 @@ class Exercise(ABC):
         self.calc_topology()
         self.calc_angles()
         self.rep = [[] for _ in range(len(self.angles))]
+        self.pose = []
 
     @abstractmethod
     def project(self):
@@ -304,46 +308,79 @@ class Exercise(ABC):
 
     def predict(self, pose):
         self.total += 1
+
+        filtered = pose[self.mask]
+        if np.isnan(filtered).any():
+            # print('nans')
+            if self.initial is None:
+                print('nans for initial!')
+                return
+            else:
+                assert not np.isnan(self.pose[-1]).any()
+                mask = np.isnan(filtered)
+                filtered[mask] = self.pose[-1][mask]
+        
+        self.pose.append(filtered.copy())
+        size = 3
+        if len(self.pose) >= size:
+            for k in range(4):
+                x = np.array([self.pose[t][k, :] for t in range(-1, -(size+1), -1)])
+                filtered[k, 0] = np.mean(x[:, 0])
+                filtered[k, 1] = np.mean(x[:, 1])
+
+                # x[:, 0] = ndimage.median_filter(x[:, 0], size)
+                # x[:, 1] = ndimage.median_filter(x[:, 1], size)
+                # filtered[k, :] = x[-1, :]
+                # p[-1][k, :] = filtered[k, :]
+
+        body_vecs = calc_body_vecs(filtered, self.topology)
+        body_angles = calc_body_angles(body_vecs, self.angles)
+
         if self.initial is None:
-            self.initial = pose
+            self.initial = body_angles
             return
 
         if self.in_rep:
-            self.add(pose)
-            if self.finished(pose):
+            self.add(body_angles)
+            if self.finished(body_angles):
                 print('finished!', self.total)
                 self.eval()
                 self.in_rep = False
                 self.rep = [[] for _ in range(len(self.angles))]
                 self.t = 0
-            elif self.prev_rep is not None and self.prev_label == False:
-                return np.array([pose[self.mask], self.project(pose[self.mask])])
-        elif self.started(pose):
+            # elif self.prev_rep is not None and self.prev_label == False:
+            elif self.prev_rep is not None:
+                return np.array([filtered, self.project(filtered)])
+        elif self.started(body_angles):
             print('started rep!', self.total)
-            if self.mask is None or self.topology is None:
-                self.calc_keypoints(pose)
-                self.calc_keypoint_mask()
-                self.calc_topology()
-                self.calc_angles()
-                self.rep = [[] for _ in range(len(self.angles))]
-            self.add(pose)
+            # if self.mask is None or self.topology is None:
+            #     self.calc_keypoints(pose)
+            #     self.calc_keypoint_mask()
+            #     self.calc_topology()
+            #     self.calc_angles()
+            #     self.rep = [[] for _ in range(len(self.angles))]
+            self.add(body_angles)
             self.in_rep = True
 
         if self.mask is not None:
-            return pose[self.mask]
+            return filtered
 
 
-    def add(self, pose):
-        filtered = pose[self.mask]
-        body_vecs = calc_body_vecs(filtered, self.topology)
-        body_angles = calc_body_angles(body_vecs, self.angles)
+    def add(self, body_angles):
         for k in range(len(body_angles)):
             self.rep[k].append(body_angles[k])
         self.t += 1
+        print(math.degrees(np.pi - body_angles[0]))
+
+        # size = 3
+        # if len(self.rep[0]) >= size:
+        #     for feature in range(len(self.rep)):
+        #         # print(self.rep[0][-1:-(size+1):-1], self.rep[0][-1])
+        #         self.rep[feature][-1:-(size+1):-1] = ndimage.median_filter(self.rep[feature][-1:-(size+1):-1], size)
 
     def eval(self):
         seq = np.array(self.rep)
-        sequence.clean_nans(seq)
+        # sequence.clean_nans(seq)
         sequence.filter_noise(seq)
         label, alignment, ref_seq = self.classifier.predict(seq)
         print('good' if label else 'bad')
@@ -353,15 +390,15 @@ class Exercise(ABC):
         self.prev_label = label
 
     @abstractmethod
-    def started(self, pose):
+    def started(self, body_angles):
         pass
 
     @abstractmethod
-    def finished(self, pose):
+    def finished(self, body_angles):
         pass
 
 class BodyweightSquat(Exercise):
-    def __init__(self, drop_percent=0.90):
+    def __init__(self, drop_percent=0.75):
         self.hip = 0
         self.knee = 1
         self.ankle = 2
@@ -392,29 +429,32 @@ class BodyweightSquat(Exercise):
     def calc_topology(self):
         self.topology = [[self.neck, self.hip], [self.hip, self.knee], [self.knee, self.ankle]]
     
-    def started(self, pose):
-        return pose[Keypoints.NECK.value, self.y] > (1 - self.drop_percent * (1 - self.initial[Keypoints.NECK.value, self.y]))
+    def started(self, body_angles):
+        # return pose[Keypoints.NECK.value, self.y] > (1 - self.drop_percent * (1 - self.initial[Keypoints.NECK.value, self.y]))
+        return (np.pi - body_angles[0]) < self.drop_percent * (np.pi - self.initial[0])
 
-    def finished(self, pose):
-        f = pose[Keypoints.NECK.value, self.y] <= (1 - self.drop_percent * (1 - self.initial[Keypoints.NECK.value, self.y]))
-        if f:
-            self.prev_hip_y = None
-        return f
+    def finished(self, body_angles):
+        # print(math.degrees(np.pi - body_angles[0]), math.degrees(np.pi - self.initial[0]))
+        return (np.pi - body_angles[0]) >= self.drop_percent * (np.pi - self.initial[0])
+        # f = pose[Keypoints.NECK.value, self.y] <= (1 - self.drop_percent * (1 - self.initial[Keypoints.NECK.value, self.y]))
+        # if f:
+        #     self.prev_hip_y = None
+        # return f
 
     def project(self, pose):
         # shift knee relative to ankle
 
         current_hip_y = 1 - pose[self.hip, 1]
         # print('hip y:', self.prev_hip_y, current_hip_y)
-        if self.prev_hip_y is not None:
-            if self.prev_hip_y[0] < current_hip_y and not self.prev_hip_y[1]:
-                # print('minimum!')
-                self.prev_hip_y[1] = True
-            self.prev_hip_y[0] = current_hip_y
-        else:
-            self.prev_hip_y = [current_hip_y, False]
+        # if self.prev_hip_y is not None:
+        #     if self.prev_hip_y[0] < current_hip_y and not self.prev_hip_y[1]:
+        #         # print('minimum!')
+        #         self.prev_hip_y[1] = True
+        #     self.prev_hip_y[0] = current_hip_y
+        # else:
+        #     self.prev_hip_y = [current_hip_y, False]
 
-        lim = 0.1
+        lim = -0.1
 
         neck_to_knee = 0
         hip_to_ankle = 1

@@ -17,8 +17,8 @@ class PoseSource(Node):
     def prepare(self):
         with h5py.File(self.filename, 'r') as data:
             self.seq = data['pose'][:]
-        sequence.clean_nans(self.seq)
-        sequence.filter_noise(self.seq)
+        # sequence.clean_nans(self.seq)
+        # sequence.filter_noise(self.seq)
 
     def process(self):
         if self.t >= self.seq.shape[-1]:
