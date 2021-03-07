@@ -12,15 +12,16 @@ def test_sequence_dtw_knn():
     # print(filenames)
 
     X_train_names, X_test_names = train_test_split(filenames, test_size=0.4, random_state=42)
+    print(len(X_train_names))
 
-    X_train, y_train = core.sequence.load_features(X_train_names, topology)
-    X_test, y_test = core.sequence.load_features(X_test_names, topology)
+    X_train, y_train = core.sequence.load_features(X_train_names)
+    X_test, y_test = core.sequence.load_features(X_test_names)
 
     classifier = core.sequence.DtwKnn()
     classifier.fit(X_train, y_train)
     predictions = []
     for test in range(len(X_test_names)):
-        label = classifier.predict(X_test[test])
+        label, _ = classifier.predict(X_test[test])
         predictions.append(label)
 
     print(classification_report(y_test, predictions, target_names=['correct', 'bad']))

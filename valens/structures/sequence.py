@@ -7,74 +7,34 @@ import numpy as np
 import h5py
 import sys
 import math
+from scipy import ndimage
 
-class DtwKnn:
-    def __init__(self):
-        pass
-
-    def fit(self, X_train, y_train):
-        self.X_train = X_train
-        self.y_train = y_train
-
-    def predict(self, X_test):
-        num_train = len(self.X_train)
-        num_features = self.X_train[0].shape[0]
-        print(num_train, num_features)
-
-        assert X_test.shape[0] == num_features
-
-        f_good = [[] for _ in range(num_features)]
-        f_bad = [[] for _ in range(num_features)]
-
-        min_dist = sys.maxsize
-        min_dist_path = []
-        min_dist_train = -1
-
-        for train in range(num_train):
-            for feature in range(num_features):
-                _, dist, a1, a2 = dtw1d(X_test[feature, :], self.X_train[train][feature, :])
-                dist = math.sqrt(dist)
-
-                if self.y_train[train]:
-                    if dist < min_dist:
-                        min_dist = dist
-                        min_dist_path = [a1, a2]
-                        min_dist_train = train
-
-                if self.y_train[train]:
-                    f_good[feature].append(dist)
-                else:
-                    f_bad[feature].append(dist)
-        print('min dist', min_dist)
-
-        good_score = np.sum(np.mean(f_good, axis=0))
-        bad_score = np.sum(np.mean(f_bad, axis=0))
-
-        if good_score < bad_score:
-            y_test = 1
+def filter_noise(seq, size=5):
+    for k in range(seq.shape[0]):
+        if len(seq.shape) == 3:
+            for i in range(2):
+                seq[k, i, :] = ndimage.median_filter(seq[k, i, :], size)
         else:
-            y_test = 0
+            seq[k, :] = ndimage.median_filter(seq[k, :], size)
 
-        return y_test
+# def angles(seq, topology, space_frame=[0, 1]):
+#     T = seq.shape[-1]
+#     num_vecs = len(topology) + 1 # for space frame
+#     angles = np.empty((num_vecs - 1, T))
+#     for t in range(T):
+#         angles[:, t] = core.pose.angles(seq[:, :, t], topology)
+#     return angles
 
-def angles(seq, topology, space_frame=[0, 1]):
-    T = seq.shape[-1]
-    num_vecs = len(topology) + 1 # for space frame
-    angles = np.empty((num_vecs - 1, T))
-    for t in range(T):
-        angles[:, t] = core.pose.angles(seq[:, :, t], topology)
-    return angles
-
-def load_features(filenames, topology):
+def load_features(filenames):
     features = []
     labels = []
 
     for filename in filenames:
         with h5py.File(filename, 'r') as data:
-            seq = data['pose'][:]
+            seq = data['seq'][:]
             label = data['label'][()]
 
-        features.append(angles(seq, topology))
+        features.append(seq)
         labels.append(label)
 
     return features, np.array(labels, dtype=np.bool)
@@ -116,4 +76,52 @@ def align(seq1, seq2, alignment):
             align_seq2[k, frame] = (val / total_vals) # avg seq1 matches in seq2
 
     return align_seq2
-    
+
+class DtwKnn:
+    def __init__(self):
+        pass
+
+    def fit(self, X_train, y_train):
+        self.X_train = X_train
+        self.y_train = y_train
+
+    def predict(self, X_test):
+        num_train = len(self.X_train)
+        num_features = self.X_train[0].shape[0]
+
+        assert X_test.shape[0] == num_features
+
+        f_good = [[] for _ in range(num_features)]
+        f_bad = [[] for _ in range(num_features)]
+
+        min_dist = sys.maxsize
+        min_dist_path = []
+        min_dist_train = -1
+
+        for train in range(num_train):
+            for feature in range(num_features):
+                _, dist, a1, a2 = dtw1d(X_test[feature, :], self.X_train[train][feature, :])
+                dist = math.sqrt(dist)
+
+                if self.y_train[train]:
+                    if dist < min_dist:
+                        min_dist = dist
+                        min_dist_path = [a1, a2]
+                        min_dist_train = train
+
+                if self.y_train[train]:
+                    f_good[feature].append(dist)
+                else:
+                    f_bad[feature].append(dist)
+        print('min dist', min_dist)
+
+        good_score = np.sum(np.mean(f_good, axis=0))
+        bad_score = np.sum(np.mean(f_bad, axis=0))
+
+        if good_score < bad_score:
+            y_test = 1
+        else:
+            y_test = 0
+
+        return y_test, align(X_test, self.X_train[min_dist_train], min_dist_path)
+        
