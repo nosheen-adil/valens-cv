@@ -1,169 +1,119 @@
 from valens import constants
-from valens.structures import pose
-from valens.dtw import dtw2d
+from valens import structures as core
+from valens.dtw import dtw1d
 
-import cv2
-#from pydtw import dtw2d, dtw1d
-import json
-import numpy as np
 import os
-import time
-from fastdtw import fastdtw
-from scipy.spatial.distance import euclidean
-from scipy import ndimage
+import numpy as np
+import h5py
+import sys
+import math
 
-all_keypoints = ["nose", "left_eye", "right_eye", "left_ear", "right_ear", "left_shoulder", "right_shoulder", "left_elbow", "right_elbow", "left_wrist", "right_wrist", "left_hip", "right_hip", "left_knee", "right_knee", "left_ankle", "right_ankle", "neck"]
+class DtwKnn:
+    def __init__(self):
+        pass
 
-def get_rep_idx(markers):
-    rep_idx = np.empty((len(markers) + 1,2), dtype=np.uint32)
-    markers.insert(0, 0.0)
-    markers.append(-1)
-    for i in range(len(markers) - 1):
-        rep_idx[i, :] = [markers[i], markers[i+1]]
-    return rep_idx
+    def fit(self, X_train, y_train):
+        self.X_train = X_train
+        self.y_train = y_train
 
-def get_reps(p, rep_idx):
-    refs = []
-    for i in range(rep_idx.shape[0]):
-        refs.append(p[:, :, rep_idx[i, 0]:rep_idx[i, 1]])
-    return refs
+    def predict(self, X_test):
+        num_train = len(self.X_train)
+        num_features = self.X_train[0].shape[0]
+        print(num_train, num_features)
 
-def gen_keypoints_mask(keypoints=[]):
-    with open(constants.POSE_JSON, 'r') as f:
-        human_pose = json.load(f)
+        assert X_test.shape[0] == num_features
 
-    mask = np.zeros((len(all_keypoints,)), dtype=np.bool)
-    if not keypoints:
-        mask[:] = 1
-        return mask
+        f_good = [[] for _ in range(num_features)]
+        f_bad = [[] for _ in range(num_features)]
 
-    for keypoint in keypoints:
-        mask[keypoint.value] = 1
-    return mask
+        min_dist = sys.maxsize
+        min_dist_path = []
+        min_dist_train = -1
 
-def calc_center(seq):
-    pose = seq[:, :, 0]
-    # right = all_keypoints.index("right_hip")
-    # left = all_keypoints.index("left_hip")
-    # center = (pose[right, :] + pose[left, :]) / 2
-    hip = all_keypoints.index("right_hip")
-    center = pose[hip, :]
-    return center
+        for train in range(num_train):
+            for feature in range(num_features):
+                _, dist, a1, a2 = dtw1d(X_test[feature, :], self.X_train[train][feature, :])
+                dist = math.sqrt(dist)
 
-def center(seq, width=1, height=1):
-    global_center = np.array([width / 2, height / 2])
-    global_center[1] -= 0.1
-    center = calc_center(seq)
-    diff = global_center - center
-    for i in range(2):
-        seq[:, i, :] += diff[i]
+                if self.y_train[train]:
+                    if dist < min_dist:
+                        min_dist = dist
+                        min_dist_path = [a1, a2]
+                        min_dist_train = train
 
-def visualize(seqs, colors, filename, topology, capture=None, fps=10, width=constants.POSE_MODEL_WIDTH, height=constants.POSE_MODEL_HEIGHT):
-    if os.path.exists(filename):
-        os.remove(filename)
-    
-    fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
-    writer = cv2.VideoWriter(filename, fourcc, fps, (width, height))
+                if self.y_train[train]:
+                    f_good[feature].append(dist)
+                else:
+                    f_bad[feature].append(dist)
+        print('min dist', min_dist)
 
-    total_frames = seqs[0].shape[-1]
-    for i in range(total_frames):
-        if capture:
-            ret, image = capture.read()
-            image = cv2.resize(image, (width, height))
-            assert(ret)
+        good_score = np.sum(np.mean(f_good, axis=0))
+        bad_score = np.sum(np.mean(f_bad, axis=0))
+
+        if good_score < bad_score:
+            y_test = 1
         else:
-            image = np.zeros((width, height, 3), dtype=np.uint8)
-        for j in range(len(seqs)):
-            pose.draw_on_image(seqs[j][:, :, i], image, topology, color=colors[j])
-        writer.write(image)
+            y_test = 0
 
-def clean_nans(seq):
-    x = lambda z: z.nonzero()[0]
+        return y_test
 
-    for k in range(seq.shape[0]):
-        for i in range(2):
-            nans = np.isnan(seq[k, i, :])
-            if nans.all():
-                continue
-            seq[k, i, nans] = np.interp(x(nans), x(~nans), seq[k, i, ~nans])
+def angles(seq, topology, space_frame=[0, 1]):
+    T = seq.shape[-1]
+    num_vecs = len(topology) + 1 # for space frame
+    angles = np.empty((num_vecs - 1, T))
+    for t in range(T):
+        angles[:, t] = core.pose.angles(seq[:, :, t], topology)
+    return angles
 
-def filter_noise(seq, size=5):
-    for k in range(seq.shape[0]):
-        for i in range(2):
-            seq[k, i, :] = ndimage.median_filter(seq[k, i, :], size)
+def load_features(filenames, topology):
+    features = []
+    labels = []
 
-def filter_keypoints(seq, keypoints):
-    mask = gen_keypoints_mask(keypoints)
-    return seq[mask, :, :]
+    for filename in filenames:
+        with h5py.File(filename, 'r') as data:
+            seq = data['pose'][:]
+            label = data['label'][()]
 
-def warp(seq1, seq2):
+        features.append(angles(seq, topology))
+        labels.append(label)
+
+    return features, np.array(labels, dtype=np.bool)
+
+def post_processed_filenames(exercise_type, sequences_dir=constants.DATA_DIR + '/sequences/post_processed'):
+    _, _, names = next(os.walk(sequences_dir))
+    names = [sequences_dir + '/' + name for name in names if name[0:len(exercise_type)] == exercise_type]
+    return names
+
+def align(seq1, seq2, alignment):
     assert seq1.shape[0] == seq2.shape[0]
-    start = time.time()
+
     total_keypoints = seq1.shape[0]
-    alignments = []
-    cost = np.empty((total_keypoints,), dtype=np.float32)
-    for k in range(total_keypoints):
-        x1 = np.transpose(seq1[k, :, :])
-        x2 = np.transpose(seq2[k, :, :])
-        path = []
-        if not np.isnan(x1).any() and not np.isnan(x2).any():
-            distance, path = fastdtw(x1, x2, dist=euclidean)
-            cost[k] = distance
-
-        # x1 = np.transpose(seq1[k, :, :]).copy(order='c')
-        # x2 = np.transpose(seq2[k, :, :]).copy(order='c')
-        # _, c, a1, a2 = dtw2d(x1, x2)
-        # cost[k] = c
-        a1 = []
-        a2 = []
-        for i in range(len(path)):
-            a1.append(path[i][0])
-            a2.append(path[i][1])
-        
-        # print(c)
-        # alignment = np.transpose(np.array([a1, a2]))
-        alignment = [a1, a2]
-        alignments.append(alignment)
-    end = time.time()
-    print("seq_dtw fps:", 1/(end-start))
-    return alignments, cost
-
-def align(seq1, seq2, alignments):
-    assert seq1.shape[0] == seq2.shape[0]
-    assert seq1.shape[0] == len(alignments)
-
-    total_keypoints = len(alignments)
     align_seq2 = np.empty_like(seq1) 
     align_seq2[:] = np.nan
     for k in range(total_keypoints):
-        alignment = alignments[k]
         total_warped_frames = len(alignment[0])
         
         w = 0 # counter in alignment[0] (matched frames in seq1)
         frame = 0 # frame number in seq1
         total_vals = 0
-        val = np.zeros((2, ))
+        val = 0.0
         while w < total_warped_frames:
             if alignment[0][w] == frame:
                 # cumulate results
-                val += seq2[k, :, alignment[1][w]]
+                val += seq2[k, alignment[1][w]]
                 total_vals += 1
                 w += 1
             else:
                 # write to output
                 if total_vals > 0:
-                    align_seq2[k, :, frame] = (val / total_vals) # avg seq1 matches in seq2
-                    val[:] = 0.0
+                    align_seq2[k, frame] = (val / total_vals) # avg seq1 matches in seq2
+                    val = 0.0
                     total_vals = 0
                 # else:
                     # print("skipping!!!", k)
                 frame += 1
         if total_vals > 0: # last frame
-            align_seq2[k, :, frame] = (val / total_vals) # avg seq1 matches in seq2
+            align_seq2[k, frame] = (val / total_vals) # avg seq1 matches in seq2
 
     return align_seq2
-
-def merge(seq1, seq2):
-    assert seq1.shape == seq2.shape
-    merged_seq = np.stack((seq1, seq2), axis=3)
-    return np.mean(merged_seq, axis=3)
+    

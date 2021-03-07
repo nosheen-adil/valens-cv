@@ -24,6 +24,14 @@ def test_pose_topology_subset():
     topology = core.pose.topology(keypoints)
     assert topology == [[2, 1], [1, 0], [3, 0]]
 
+def test_pose_keypoint_mask():
+    keypoints = [Keypoints.RANKLE, Keypoints.RKNEE, Keypoints.RHIP, Keypoints.NECK]
+    keypoint_mask = core.pose.keypoint_mask(keypoints)
+    np.testing.assert_equal(
+        keypoint_mask,
+        [False, False, False, False, False, False, False, False, False, False, False, True, False, True, False, True, False, True]
+    )
+
 def test_pose_trt_to_image():
     with h5py.File(constants.TEST_DATA_DIR + "/structures_pose_trt_to_image.h5", "r") as data:
         counts = data["counts"][:]
@@ -125,9 +133,7 @@ def test_pose_angles():
         [0.5, 0.1]
     ])
 
-    vectors = core.pose.vectors(pose, topology)
-    vectors = np.vstack(([0, 1], vectors))
-    angles = core.pose.angles(vectors)
+    angles = core.pose.angles(pose, topology, space_frame=[0, 1])
 
     assert angles.shape == (3,)
     assert angles[0] == np.pi
@@ -164,9 +170,7 @@ def test_pose_transform_nonzero():
     expected_pose[3, 1] += abs(pose[2, 1] - pose[1, 1])
     expected_pose[3, 0] = expected_pose[2, 0]
 
-    vectors = core.pose.vectors(expected_pose, topology)
-    vectors = np.vstack(([0, 1], vectors))
-    angles = core.pose.angles(vectors)
+    angles = core.pose.angles(expected_pose, topology, space_frame=[0, 1])
     
     joint_angles = np.array([angles[0] - np.pi, -angles[1], angles[2], 0])
     transformed_pose = core.pose.transform(pose, joint_angles, topology)

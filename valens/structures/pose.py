@@ -46,6 +46,12 @@ def topology(keypoints=[], human_pose_path=constants.POSE_JSON):
 
     return topology
 
+def keypoint_mask(keypoints):
+    mask = np.zeros((len(Keypoints),), dtype=np.bool)
+    for keypoint in keypoints:
+        mask[keypoint.value] = 1
+    return mask
+
 def _nn_find_person_idx(object_counts, objects, min_keypoints):
     count = int(object_counts[0])
     results = {}
@@ -126,15 +132,16 @@ def vectors(pose, topology):
         vectors[v] /= np.linalg.norm(vectors[v])
     return vectors
 
-def angles(vectors, connections=[]):
-    num_vecs = vectors.shape[0]
-    if not connections:
-        connections = [[i, i+1] for i in range(num_vecs - 1)]
-    angles = np.empty((len(connections),))
-    for c in range(len(connections)):
-        joint1 = connections[c][0]
-        joint2 = connections[c][1]
-        angles[c] = np.arccos(vectors[joint2, 0] * vectors[joint1, 0] + vectors[joint2, 1] * vectors[joint1, 1])
+def angles(pose, topology, space_frame=[0, 1]):
+    vecs = vectors(pose, topology)
+    vecs = np.vstack((space_frame, vecs))
+
+    num_vecs = vecs.shape[0]
+    angles = np.empty((len(topology),))
+    for c in range(len(topology)):
+        joint1 = topology[c][0]
+        joint2 = topology[c][1]
+        angles[c] = np.arccos(vecs[joint2, 0] * vecs[joint1, 0] + vecs[joint2, 1] * vecs[joint1, 1])
     return angles
 
 
