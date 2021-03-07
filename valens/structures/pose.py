@@ -27,6 +27,29 @@ class Keypoints(Enum):
     LANKLE = 16
     NECK = 17
 
+    def __str__(self):
+        names = [
+            'neck', 
+            'right_eye',
+            'left_eye',
+            'right_ear',
+            'left_ear',
+            'right_shoulder',
+            'left_shoulder',
+            'right_elbow',
+            'left_elbow',
+            'right_wrist',
+            'left_wrist',
+            'right_hip',
+            'left_hip',
+            'right_knee',
+            'left_knee',
+            'right_ankle',
+            'left_ankle',
+            'neck'
+        ]
+        return names[self.value]
+
 def topology(keypoints=[], human_pose_path=constants.POSE_JSON):
     if not keypoints:
         keypoints = [k for k in Keypoints]

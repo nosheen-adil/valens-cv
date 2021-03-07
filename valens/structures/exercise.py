@@ -28,9 +28,9 @@ class Exercise(ABC):
         self.damping_factor = damping_factor
         self.diff_limit = diff_limit
 
-        # self.classifier = va.sequence.DtwKnn()
-        # X_train, y_train = va.sequence.load_features(va.sequence.post_processed_filenames(exercise_type.value))
-        # self.classifier.fit(X_train, y_train)
+        self.classifier = va.sequence.DtwKnn()
+        X_train, y_train = va.sequence.load_features(va.sequence.post_processed_filenames(exercise_type.value))
+        self.classifier.fit(X_train, y_train)
 
     @abstractmethod
     def started(self, angles):
@@ -82,21 +82,21 @@ class Exercise(ABC):
     def eval(self):
         rep = np.array(self.rep)
         va.sequence.filter_noise(rep)
-        # label, match = self.classifier.predict(rep)
+        label, match = self.classifier.predict(rep)
         self.prev_rep = rep
-        # self.prev_label = label
-        # self.prev_match = match
+        self.prev_label = label
+        self.prev_match = match
 
     def predict(self):
         if self.zero_pos is None:
             return
 
         if self.in_rep and self.prev_rep is not None:
-            # return va.feedback.to_json(self.window[-1], self.project())
-            return np.array(self.window[-1], self.project())
+            return va.feedback.to_json(self.window[-1], corrected_pose=self.project(), keypoints=self.keypoints)
+            # return np.array(self.window[-1], self.project())
         
-        # return va.feedback.to_json(self.window[-1])
-        return self.window[-1]
+        return va.feedback.to_json(self.window[-1], keypoints=self.keypoints)
+        # return self.window[-1]
 
     def project(self):
         num_angles = len(self.rep)
