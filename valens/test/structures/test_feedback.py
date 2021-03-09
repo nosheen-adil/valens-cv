@@ -7,7 +7,7 @@ import numpy as np
 import cv2
 import h5py
 
-def test_feedback_to_json_correct():
+def test_feedback_to_json_none():
     keypoints = [Keypoints.RANKLE, Keypoints.RKNEE, Keypoints.RHIP, Keypoints.NECK]
     pose = np.array([
         [0.5, 0.7],
@@ -17,6 +17,22 @@ def test_feedback_to_json_correct():
     ])
 
     result = core.feedback.to_json(pose, keypoints=keypoints)
+    for i, keypoint in enumerate([str(k) for k in keypoints]):
+        assert result['pose'][keypoint]['x'] == pose[i, 0]
+        assert result['pose'][keypoint]['y'] == pose[i, 1]
+        assert result['feedback'][keypoint]['correct'] == None
+
+def test_feedback_to_json_correct():
+    keypoints = [Keypoints.RANKLE, Keypoints.RKNEE, Keypoints.RHIP, Keypoints.NECK]
+    pose = np.array([
+        [0.5, 0.7],
+        [0.5, 0.5],
+        [0.5, 0.35],
+        [0.5, 0.1]
+    ])
+    corrected_pose = pose.copy()
+
+    result = core.feedback.to_json(pose, corrected_pose=corrected_pose, keypoints=keypoints)
     for i, keypoint in enumerate([str(k) for k in keypoints]):
         assert result['pose'][keypoint]['x'] == pose[i, 0]
         assert result['pose'][keypoint]['y'] == pose[i, 1]
@@ -103,7 +119,7 @@ def test_feedback_draw_on_image_correct():
     }
 
     expected_frame = np.zeros((constants.POSE_MODEL_WIDTH, constants.POSE_MODEL_HEIGHT, 3), dtype=np.uint8)
-    core.pose.draw_on_image(pose, expected_frame, topology)
+    core.pose.draw_on_image(pose, expected_frame, topology, color=(204, 255, 204))
 
     actual_frame = np.zeros((constants.POSE_MODEL_WIDTH, constants.POSE_MODEL_HEIGHT, 3), dtype=np.uint8)
     core.feedback.draw_on_image(feedback, actual_frame, feedback_topology)
@@ -172,5 +188,7 @@ def test_feedback_draw_on_image_incorrect():
     expected_filename = constants.TEST_DATA_DIR + '/feedback_draw_on_image_incorrect.h5'
     with h5py.File(expected_filename, 'r') as data:
         expected_frame = data['image'][:]
+
+    cv2.imwrite(constants.TEST_DATA_DIR + '/feedback_draw_on_image_incorrect.jpg', actual_frame)
     
     np.testing.assert_equal(actual_frame, expected_frame)

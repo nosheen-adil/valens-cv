@@ -3,6 +3,13 @@ from valens.structures.pose import Keypoints
 import numpy as np
 import cv2
 
+from enum import Enum
+
+class KeypointResult(Enum):
+    GOOD = 'good'
+    BAD = 'bad'
+    UNDEFINED = 'undefined'
+
 def to_json(user_pose, corrected_pose=None, keypoints=[]):
     if corrected_pose is not None:
         assert user_pose.shape == corrected_pose.shape
@@ -23,8 +30,12 @@ def to_json(user_pose, corrected_pose=None, keypoints=[]):
             'x' : user_pose[i, 0],
             'y' : user_pose[i, 1]
         }
-
-        if corrected_pose is None or np.allclose(user_pose[i, :], corrected_pose[i, :]):
+        if corrected_pose is None:
+            result['feedback'][keypoint_name] = {
+                'correct' : None
+            }
+        elif np.allclose(user_pose[i, :], corrected_pose[i, :], rtol=1e-1):
+            # print('close!')
             result['feedback'][keypoint_name] = {
                 'correct' : True
             }
@@ -58,16 +69,14 @@ def scale(feedback, width=constants.POSE_MODEL_WIDTH, height=constants.POSE_MODE
         else:
             result['pose'][keypoint]['y'] = round(result['pose'][keypoint]['y'] * height)
 
-
     for keypoint in result['feedback'].keys():
-        if not result['feedback'][keypoint]['correct']:
+        if result['feedback'][keypoint]['correct'] is False:
             result['feedback'][keypoint]['x'] = round(result['feedback'][keypoint]['x'] * width)
             result['feedback'][keypoint]['y'] = round(result['feedback'][keypoint]['y'] * height)
 
     return result
 
-def draw_on_image(feedback, frame, topology, user_colors={'good' : (0, 255, 0), 'bad' : (0, 0, 255)}, feedback_color=(255, 255, 255)):
-    print(feedback)
+def draw_on_image(feedback, frame, topology, user_colors={'good' : (0, 153, 0), 'bad' : (0, 0, 204), 'undefined' : (255, 255, 255)}, feedback_color=(0, 153, 0)):
     result = scale(feedback, frame.shape[0], frame.shape[1])
 
     for keypoint in result['pose'].keys():
@@ -77,14 +86,15 @@ def draw_on_image(feedback, frame, topology, user_colors={'good' : (0, 255, 0), 
         if x >= 0 and y >= 0:
             correct = result['feedback'][keypoint]['correct']
             
-            if correct:
+            if correct is True:
                 cv2.circle(frame, (x, y), 3, user_colors['good'], 2)
+            elif correct is None:
+                cv2.circle(frame, (x, y), 3, user_colors['undefined'], 2)
             else:
                 f_x = result['feedback'][keypoint]['x']
                 f_y = result['feedback'][keypoint]['y']
                 cv2.circle(frame, (x, y), 3, user_colors['bad'], 2)
                 cv2.circle(frame, (f_x, f_y), 3, feedback_color, 2)
-    print(result)
     for link in topology:
         keypoint1, keypoint2 = link
 
@@ -97,18 +107,18 @@ def draw_on_image(feedback, frame, topology, user_colors={'good' : (0, 255, 0), 
             correct1 = result['feedback'][keypoint1]['correct']
             correct2 = result['feedback'][keypoint2]['correct']
 
-            print(keypoint1, correct1, keypoint2, correct2)
-
-            if correct1 and correct2:
+            if correct1 is True and correct2 is True:
                 cv2.line(frame, (x1, y1), (x2, y2), user_colors['good'], 2)
+            elif correct1 is None and correct2 is None:
+                cv2.line(frame, (x1, y1), (x2, y2), user_colors['undefined'], 2)
             else:
                 cv2.line(frame, (x1, y1), (x2, y2), user_colors['bad'], 2)
             
-                if correct1 and not correct2:
+                if (correct1 is True or correct1 is None) and (correct2 is False):
                     f_x2 = result['feedback'][keypoint2]['x']
                     f_y2 = result['feedback'][keypoint2]['y']
                     cv2.line(frame, (x1, y1), (f_x2, f_y2), feedback_color, 2)
-                elif not correct1 and correct2:
+                elif (correct1 is False) and (correct2 is True or correct2 is None):
                     f_x1 = result['feedback'][keypoint1]['x']
                     f_y1 = result['feedback'][keypoint1]['y']
                     cv2.line(frame, (f_x1, f_y1), (x2, y2), feedback_color, 2)
@@ -118,6 +128,6 @@ def draw_on_image(feedback, frame, topology, user_colors={'good' : (0, 255, 0), 
 
                     f_x1 = result['feedback'][keypoint1]['x']
                     f_y1 = result['feedback'][keypoint1]['y']
-                    print(f_x1, f_y1, f_x2, f_y2)
+
                     cv2.line(frame, (f_x1, f_y1), (f_x2, f_y2), feedback_color, 2)
                     

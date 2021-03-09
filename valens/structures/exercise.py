@@ -12,9 +12,8 @@ class ExerciseType(Enum):
     BS = "BS"
 
 class Exercise(ABC):
-    def __init__(self, exercise_type, keypoints, topology, window_size=3, damping_factor=0.5, diff_limit=0.1):
+    def __init__(self, exercise_type, keypoints, topology, window_size=3, damping_factor=0.8, diff_limit=1e-2):
         self.keypoints = keypoints
-        self.keypoint_mask = va.pose.keypoint_mask(keypoints)
         self.topology = topology
 
         self.rep = [[] for _ in range(len(topology))]
@@ -31,6 +30,7 @@ class Exercise(ABC):
         self.classifier = va.sequence.DtwKnn()
         X_train, y_train = va.sequence.load_features(va.sequence.post_processed_filenames(exercise_type.value))
         self.classifier.fit(X_train, y_train)
+        self.t = 0
 
     @abstractmethod
     def started(self, angles):
@@ -45,7 +45,7 @@ class Exercise(ABC):
         pass
 
     def fit(self, pose):
-        filtered = pose[self.keypoint_mask]
+        filtered = va.pose.filter_keypoints(pose, self.keypoints)
         if np.isnan(filtered).any():
             if self.zero_pos is None:
                 return
@@ -70,19 +70,23 @@ class Exercise(ABC):
                 self.rep[k].append(angles[k])
 
             if self.finished(angles):
+                # print('finished', self.t)
                 self.eval()
                 self.in_rep = False
                 self.rep = [[] for _ in range(len(self.rep))]
             
         elif self.started(angles):
+            # print('started:', self.t)
             for k in range(angles.shape[0]):
                 self.rep[k].append(angles[k])
             self.in_rep = True
+        self.t += 1
 
     def eval(self):
         rep = np.array(self.rep)
         va.sequence.filter_noise(rep)
         label, match = self.classifier.predict(rep)
+        print('good' if label else 'bad')
         self.prev_rep = rep
         self.prev_label = label
         self.prev_match = match
@@ -93,21 +97,23 @@ class Exercise(ABC):
 
         if self.in_rep and self.prev_rep is not None:
             return va.feedback.to_json(self.window[-1], corrected_pose=self.project(), keypoints=self.keypoints)
-            # return np.array(self.window[-1], self.project())
         
         return va.feedback.to_json(self.window[-1], keypoints=self.keypoints)
-        # return self.window[-1]
 
     def project(self):
         num_angles = len(self.rep)
         user_angles = np.array([self.rep[feature][-1] for feature in range(num_angles)])
-        ref_angles = np.array([self.prev_match[feature, -1] for feature in range(num_angles)])
-        diff = user_angles - ref_angles
-        diff[diff < self.diff_limit] = 0.0
-        user_angles += diff * self.damping_factor
+        t = min(len(self.rep[0]),  self.prev_match.shape[-1])
+        ref_angles = np.array([self.prev_match[feature, t - 1] for feature in range(num_angles)])
+        diff = (ref_angles - user_angles) / ref_angles
+        # print(np.abs(diff) < self.diff_limit)
+        # diff[diff < self.diff_limit] = 0.0
+        user_angles += diff
         joint_angles = self.joint_angles(user_angles)
         ref_pose = self.window[-1]
         corrected_pose = va.pose.transform(ref_pose, joint_angles, self.topology)
+        # print(np.abs((corrected_pose - ref_pose) / corrected_pose))
+        corrected_pose[3, :] = ref_pose[3, :]
         return corrected_pose
 
 class BodyweightSquat(Exercise):
@@ -120,13 +126,14 @@ class BodyweightSquat(Exercise):
         self.drop_percent = drop_percent
 
     def started(self, angles):
-        return (np.pi - angles[0]) < self.drop_percent * (np.pi - self.zero_pos[0])
+        # angles: space -> ankle -> knee, ankle -> knee -> hip, knee -> hip -> neck
+        return (np.pi - angles[2]) < self.drop_percent * (np.pi - self.zero_pos[2])
 
     def finished(self, angles):
-        return (np.pi - angles[0]) >= self.drop_percent * (np.pi - self.zero_pos[0])
+        return (np.pi - angles[2]) >= self.drop_percent * (np.pi - self.zero_pos[2])
 
     def joint_angles(self, angles):
-        return np.array([angles[0] - np.pi, -angles[1], angles[2], 0])
+        return np.array([np.pi - angles[0], -angles[1], angles[2], 0])
 
 def load(exercise_type_str):
     exercise_type = ExerciseType(exercise_type_str)

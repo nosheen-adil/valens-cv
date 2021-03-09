@@ -69,11 +69,18 @@ def topology(keypoints=[], human_pose_path=constants.POSE_JSON):
 
     return topology
 
-def keypoint_mask(keypoints):
-    mask = np.zeros((len(Keypoints),), dtype=np.bool)
-    for keypoint in keypoints:
-        mask[keypoint.value] = 1
-    return mask
+# def keypoint_mask(keypoints):
+#     mask = np.zeros((len(Keypoints),), dtype=np.bool)
+#     for keypoint in keypoints:
+#         mask[keypoint.value] = 1
+#     return mask
+
+def filter_keypoints(pose, keypoints):
+    num_joints = len(keypoints)
+    filtered = np.empty((num_joints, 2))
+    for i, keypoint in enumerate(keypoints):
+        filtered[i, :] = pose[keypoint.value, :]
+    return filtered 
 
 def _nn_find_person_idx(object_counts, objects, min_keypoints):
     count = int(object_counts[0])

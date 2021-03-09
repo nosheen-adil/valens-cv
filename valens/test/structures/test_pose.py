@@ -24,13 +24,26 @@ def test_pose_topology_subset():
     topology = core.pose.topology(keypoints)
     assert topology == [[2, 1], [1, 0], [3, 0]]
 
-def test_pose_keypoint_mask():
+def test_pose_filter_keypoints():
     keypoints = [Keypoints.RANKLE, Keypoints.RKNEE, Keypoints.RHIP, Keypoints.NECK]
-    keypoint_mask = core.pose.keypoint_mask(keypoints)
-    np.testing.assert_equal(
-        keypoint_mask,
-        [False, False, False, False, False, False, False, False, False, False, False, True, False, True, False, True, False, True]
-    )
+
+    full_pose = np.empty((len(Keypoints), 2))
+    mask = np.zeros((len(Keypoints),), dtype=np.bool)
+    for keypoint in keypoints:
+        mask[keypoint.value] = 1
+    pose = np.array([
+        [0.5, 0.35], # hip
+        [0.5, 0.5], # knee
+        [0.5, 0.7], # ankle 
+        [0.5, 0.1] # neck
+    ])
+    full_pose[mask] = pose
+    
+    filtered = core.pose.filter_keypoints(full_pose, keypoints)
+    np.testing.assert_equal(pose[0, :], filtered[2, :])
+    np.testing.assert_equal(pose[1, :], filtered[1, :])
+    np.testing.assert_equal(pose[2, :], filtered[0, :])
+    np.testing.assert_equal(pose[3, :], filtered[3, :])
 
 def test_pose_trt_to_image():
     with h5py.File(constants.TEST_DATA_DIR + "/structures_pose_trt_to_image.h5", "r") as data:
