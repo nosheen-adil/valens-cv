@@ -1,3 +1,4 @@
+from .aws_sink import AwsSink
 from .feedback_filter import FeedbackFilter
 from .pose_filter import PoseFilter
 from .pose_sink import PoseSink
