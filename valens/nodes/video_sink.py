@@ -1,11 +1,11 @@
 from valens import constants
-from valens.structures import exercise
-from valens.structures import pose
-from valens.structures import feedback
-from valens.structures.node import Node
-from valens.structures.stream import InputStream
+from valens import exercise
+from valens import pose
+from valens import feedback
+from valens.node import Node
+from valens.stream import InputStream
 
-from valens import structures as core
+import valens as va
 
 from abc import abstractmethod
 import cv2
@@ -52,7 +52,7 @@ class VideoSink(Node):
             if pose is None:
                 self.stop()
                 return
-            core.pose.draw_on_image(pose, frame, self.right_topology)
+            va.pose.draw_on_image(pose, frame, self.right_topology)
         
         elif 'feedback' in self.input_streams:
             feedback = self.input_streams['feedback'].recv()
@@ -60,10 +60,10 @@ class VideoSink(Node):
                 self.stop()
                 return
             if all([self.right_topology[i][0] in feedback['pose'] for i in range(len(self.right_topology))]):
-                core.feedback.draw_on_image(feedback, frame, self.right_topology)
+                va.feedback.draw_on_image(feedback, frame, self.right_topology)
             else:
                 assert all([self.left_topology[i][0] in feedback['pose'] for i in range(len(self.left_topology))])
-                core.feedback.draw_on_image(feedback, frame, self.left_topology)
+                va.feedback.draw_on_image(feedback, frame, self.left_topology)
         self.write(frame)
 
     @abstractmethod

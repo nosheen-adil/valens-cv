@@ -1,4 +1,4 @@
-from valens.structures import stream
+from valens import stream
 
 import pytest
 import numpy as np

@@ -1,6 +1,6 @@
 from valens import constants
-from valens import structures as core
-import valens.structures.exercise
+import valens as va
+import valens.exercise
 
 import argparse
 import h5py
@@ -17,11 +17,10 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     exercise_type = args.exercise
-    exercise = core.exercise.load(exercise_type)
     
     _, _, input_filenames = next(os.walk(args.sequences_dir))
+    # input_filenames = [args.sequences_dir + '/BC_bad_6.h5']
     input_filenames = [args.sequences_dir + '/' + input_filename for input_filename in input_filenames if input_filename[0:len(exercise_type)] == exercise_type]
-    
     for input_filename in input_filenames:
         with h5py.File(input_filename, 'r') as data:
             seq = data["pose"][:]
@@ -30,6 +29,7 @@ if __name__ == '__main__':
         label = name.find('good') == 3
         print(label, name)
         
+        exercise = va.exercise.load(exercise_type)
         started = False
         total_reps = 0
         for t in range(seq.shape[-1]):

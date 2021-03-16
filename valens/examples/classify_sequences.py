@@ -1,5 +1,5 @@
 from valens import constants
-from valens.structures import sequence, exercise
+from valens import sequence, exercise
 
 import argparse
 import h5py
@@ -30,6 +30,54 @@ def DTWDistance(s1, s2):
 
     return np.sqrt(DTW[len(s1)-1, len(s2)-1])
 
+class DtwKnn:
+    def __init__(self):
+        pass
+
+    def fit(self, X_train, y_train):
+        self.X_train = X_train
+        self.y_train = y_train
+
+    def predict(self, X_test):
+        num_features = len(self.X_train)
+        num_train = len(self.X_train[0])
+        # print(num_train, num_features, len(X_test))
+        assert len(X_test) == num_features
+
+        f_good = [[] for _ in range(num_features)]
+        f_bad = [[] for _ in range(num_features)]
+
+        min_dist = sys.maxsize
+        min_dist_path = []
+        min_dist_train = -1
+
+        for train in range(num_train):
+            for feature in range(num_features):
+                _, dist, a1, a2 = dtw1d(X_test[feature].copy('c'), self.X_train[feature][train].copy('c'))
+                dist = math.sqrt(dist)
+
+                if self.y_train[train]:
+                    if dist < min_dist:
+                        min_dist = dist
+                        min_dist_path = [a1, a2]
+                        min_dist_train = train
+
+                if self.y_train[train]:
+                    f_good[feature].append(dist)
+                else:
+                    f_bad[feature].append(dist)
+        print('min dist', min_dist)
+
+        good_score = np.sum(np.mean(f_good, axis=0))
+        bad_score = np.sum(np.mean(f_bad, axis=0))
+
+        if good_score < bad_score:
+            y_test = 1
+        else:
+            y_test = 0
+
+        return y_test, min_dist_path, [self.X_train[feature][min_dist_train].copy() for feature in range(num_features)]
+
 def load_features(seq):
     hip = 0
     knee = 1
@@ -39,21 +87,17 @@ def load_features(seq):
     x = 0
     y = 1
 
-    neck_hip_vecs = np.array([(seq[neck, x, t] - seq[hip, x, t], seq[neck, y, t] - seq[hip, y, t]) for t in range(seq.shape[-1])])
-    hip_knee_vecs = np.array([(seq[hip, x, t] - seq[knee, x, t], seq[hip, y, t] - seq[knee, y, t]) for t in range(seq.shape[-1])])
-    knee_ankle_vecs = np.array([(seq[knee, x, t] - seq[ankle, x, t], seq[knee, y, t] - seq[ankle, y, t]) for t in range(seq.shape[-1])])
-
-    neck_hip_vecs = neck_hip_vecs / np.expand_dims(np.linalg.norm(neck_hip_vecs, axis=1), axis=1)
-    hip_knee_vecs = hip_knee_vecs / np.expand_dims(np.linalg.norm(hip_knee_vecs, axis=1), axis=1)
-    knee_ankle_vecs = knee_ankle_vecs / np.expand_dims(np.linalg.norm(knee_ankle_vecs, axis=1), axis=1)
-
-    neck_hip_knee_angle = np.degrees(np.arccos(np.clip(np.sum(np.multiply(neck_hip_vecs, hip_knee_vecs), axis=1), -1.0, 1.0)))
-    hip_knee_ankle_angle = np.degrees(np.arccos(np.clip(np.sum(np.multiply(hip_knee_vecs, knee_ankle_vecs), axis=1), -1.0, 1.0)))
-    return neck_hip_knee_angle, hip_knee_ankle_angle
+    T = seq.shape[-1]
+    topology = [[neck, hip], [hip, knee], [knee, ankle]]
+    body_angles = np.empty((T,3))
+    for t in range(T):
+        body_vecs = calc_body_vecs(seq[:, :, t], topology)
+        body_angles[t, :] = calc_body_angles(body_vecs, connections=[[0, 1], [1, 2], [2, 3]])
+    
+    return body_angles[:, 0], body_angles[:, 1], body_angles[:, 2]
 
 def load_features_all(names):
-    features1 = []
-    features2 = []
+    features = [[] for _ in range(3)]
     labels = []
 
     for name in names:
@@ -61,12 +105,39 @@ def load_features_all(names):
             seq = data['pose'][:]
             label = data['label'][()]
 
-        f1, f2 = load_features(seq)
-        features1.append(f1)
-        features2.append(f2)
+        f1, f2, f3 = load_features(seq)
+        features[0].append(f1)
+        features[1].append(f2)
+        features[2].append(f3)
         labels.append(label)
 
-    return features1, features2, labels
+    return features, np.array(labels, dtype=np.bool)
+
+def calc_body_vecs(pose, topology):
+    p = 1 - pose
+    p[:, 0] -= p[2, 0]
+    p[:, 1] -= p[2, 1]
+
+    num_vecs = len(topology)
+    body_vecs = np.empty((num_vecs + 1, 2))
+
+    for v in range(num_vecs):
+        for i in range(2):
+            body_vecs[v, i] =  np.array([p[topology[v][0], i] - p[topology[v][1], i]])
+        body_vecs[v] /= np.linalg.norm(body_vecs[v])
+    body_vecs[-1, :] = [0, 1]
+    return body_vecs
+
+def calc_body_angles(body_vecs, connections=[]):
+    num_vecs = body_vecs.shape[0]
+    if not connections:
+        connections = [[i, i+1] for i in range(num_vecs - 1)]
+    body_angles = np.empty((len(connections),))
+    for c in range(len(connections)):
+        joint1 = connections[c][0]
+        joint2 = connections[c][1]
+        body_angles[c] = np.arccos(body_vecs[joint1, 0] * body_vecs[joint2, 0] + body_vecs[joint1, 1] * body_vecs[joint2, 1])
+    return body_angles
 
 def save_alignment(ref_name, user_name, alignment, filename, e):
     with h5py.File(ref_name, 'r') as data:
@@ -75,7 +146,6 @@ def save_alignment(ref_name, user_name, alignment, filename, e):
         user_seq = data['pose'][:]
     aligned_seq = sequence.align(user_seq, ref_seq, [alignment]*ref_seq.shape[0])
     sequence.visualize([user_seq, aligned_seq], [(0, 255, 0), (255, 255, 255)], filename, e.topology())
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Generates a reference sequence from a pose sequence using DTW')
@@ -94,56 +164,21 @@ if __name__ == '__main__':
     X_train_names, X_test_names = train_test_split(input_filenames, test_size=0.4)
     # print(X_train_names)
     # print(X_test_names)
-    X_train1, X_train2, y_train = load_features_all(X_train_names)
-    X_test1, X_test2, y_test = load_features_all(X_test_names)
-    
+    X_train, y_train = load_features_all(X_train_names)
+    X_test, y_test = load_features_all(X_test_names)
+    # print(X_test[0].shape)
     # print(X_train, y_train)
+
+    classifier = DtwKnn()
+    classifier.fit(X_train, y_train)
 
     predictions = []
     for test in range(len(X_test_names)):
         start = time.time()
-        f1_good, f2_good, f1_bad, f2_bad = [[] for _ in range(4)]
-        min_dist = sys.maxsize
-        min_dist_path = []
-        min_dist_train = -1
-        for train in range(len(X_train_names)):
-            # dist1 = DTWDistance(X_train1[train], X_test1[test])
-            # dist2 = DTWDistance(X_train2[train], X_test2[test])
-            # start = time.time()
-            _, dist1, a11, a12 = dtw1d(X_test1[test], X_train1[train])
-            _, dist2, a21, a22 = dtw1d(X_test2[test], X_train2[train])
-            dist1 = math.sqrt(dist1)
-            dist2 = math.sqrt(dist2)
-
-            if y_train[train]:
-                print("good", X_train_names[train])
-                if dist1 < min_dist:
-                    min_dist = dist1
-                    min_dist_path = [a11, a12]
-                    min_dist_train = train
-                if dist2 < min_dist:
-                    min_dist = dist2
-                    min_dist_path = [a21, a22]
-                    min_dist_train = train
-            # end = time.time()
-            # print("FPS", 1/(end-start))
-            if y_train[train]:
-                f1_good.append(dist1)
-                f2_good.append(dist2)
-            else:
-                f1_bad.append(dist1)
-                f2_bad.append(dist2)
-
-        print(min_dist, min_dist_path)
-        good_score = np.mean(f1_good) + np.mean(f2_good)
-        bad_score = np.mean(f1_bad) + np.mean(f2_bad)
-
-        if good_score < bad_score:
-            predictions.append(1)
-        else:
-            predictions.append(0)
-
-        save_alignment(X_train_names[min_dist_train], X_test_names[test], min_dist_path, args.outputs_dir + '/' + os.path.splitext(os.path.basename(X_test_names[test]))[0] + '.mp4', e)
+        x_test = [X_test[feature][test] for feature in range(len(X_test))]
+        label, alignment, ref_seq = classifier.predict(x_test)
+        # save_alignment(X_train_names[min_dist_train], X_test_names[test], min_dist_path, args.outputs_dir + '/' + os.path.splitext(os.path.basename(X_test_names[test]))[0] + '.mp4', e)
+        predictions.append(label)
         end = time.time()
         print("Fps:", 1/(end-start))
 

@@ -1,8 +1,8 @@
 from valens import constants
 from valens import structures as va
-from valens.structures.pose import Keypoints
-import valens.structures.sequence
-from valens import structures as core
+from valens.pose import Keypoints
+import valens.sequence
+import valens as va
 
 from abc import ABC, abstractmethod
 from enum import Enum
@@ -75,9 +75,9 @@ class Exercise(ABC):
 
     def topology(self, side=None):
         if side is Side.LEFT or self.side is Side.LEFT:
-            return core.feedback.topology(self.id_topology, self.left_keypoints)
+            return va.feedback.topology(self.id_topology, self.left_keypoints)
         else:
-            return core.feedback.topology(self.id_topology, self.right_keypoints)
+            return va.feedback.topology(self.id_topology, self.right_keypoints)
 
     def fit(self, pose):
         if self._curr_frames_side_detected < self._max_frames_side_detected:
@@ -152,7 +152,7 @@ class Exercise(ABC):
 
         return va.feedback.to_json(
             user_pose=self.pose,
-            labels=[core.feedback.KeypointResult.UNDEFINED for _ in range(self.pose.shape[0])],
+            labels=[va.feedback.KeypointResult.UNDEFINED for _ in range(self.pose.shape[0])],
             keypoints=self.keypoints())
 
     # def project(self):
@@ -204,10 +204,10 @@ class BodyweightSquat(Exercise):
     def detect_side(self, pose):
         knee = 1
         hip = 2
-        filtered = core.pose.filter_keypoints(pose, self.right_keypoints)
+        filtered = va.pose.filter_keypoints(pose, self.right_keypoints)
         # print(filtered)
         if np.isnan(filtered[knee, :]).any() or np.isnan(filtered[hip, :]).any():
-            filtered = core.pose.filter_keypoints(pose, self.left_keypoints)
+            filtered = va.pose.filter_keypoints(pose, self.left_keypoints)
             if np.isnan(filtered[knee, :]).any() or np.isnan(filtered[hip, :]).any():
                 return
         
@@ -231,7 +231,7 @@ class BodyweightSquat(Exercise):
     def correct(self):
         assert len(self.rep) == 3
         user_angles = np.array([self.rep[feature][-1] for feature in range(len(self.rep))])
-        labels = [core.feedback.KeypointResult.GOOD for _ in range(self.pose.shape[0])]
+        labels = [va.feedback.KeypointResult.GOOD for _ in range(self.pose.shape[0])]
         corrected_angles = user_angles[:]
         if len(self.rep[0]) > 1:
             dt = 1.0 / 10.0
@@ -241,7 +241,7 @@ class BodyweightSquat(Exercise):
                 x = (((np.pi - user_angles[2]) - self._knee_to_neck_min_good) / self._knee_to_neck_min_good)
                 if x < 0 and abs(x) > self._max_percent_diff:
                     print('bad!')
-                    labels = [core.feedback.KeypointResult.BAD for _ in range(self.pose.shape[0])]
+                    labels = [va.feedback.KeypointResult.BAD for _ in range(self.pose.shape[0])]
                     corrected_angles = [self._space_to_knee_min_good, self._hip_to_ankle_min_good, self._knee_to_neck_min_good]
 
         return labels, corrected_angles
@@ -295,9 +295,9 @@ class BicepCurl(Exercise):
     def detect_side(self, pose):
         shoulder = 2
         wrist = 4
-        filtered = core.pose.filter_keypoints(pose, self.right_keypoints)
+        filtered = va.pose.filter_keypoints(pose, self.right_keypoints)
         if np.isnan(filtered[shoulder, :]).any() or np.isnan(filtered[wrist, :]).any():
-            filtered = core.pose.filter_keypoints(pose, self.left_keypoints)
+            filtered = va.pose.filter_keypoints(pose, self.left_keypoints)
             if np.isnan(filtered[shoulder, :]).any() or np.isnan(filtered[wrist, :]).any():
                 return
         
@@ -321,7 +321,7 @@ class BicepCurl(Exercise):
     def correct(self):
         assert len(self.rep) == 2
         user_angles = np.array([self.rep[feature][-1] for feature in range(len(self.rep))])
-        labels = [core.feedback.KeypointResult.GOOD for _ in range(self.pose.shape[0])]
+        labels = [va.feedback.KeypointResult.GOOD for _ in range(self.pose.shape[0])]
         corrected_angles = user_angles[:]
         if len(self.rep[0]) > 1:
             dt = 1.0 / 10.0
@@ -333,7 +333,7 @@ class BicepCurl(Exercise):
                 print('x', x)
                 if x > 0 and x > self._max_percent_diff:
                     print('bad!')
-                    labels = [core.feedback.KeypointResult.BAD for _ in range(self.pose.shape[0])]
+                    labels = [va.feedback.KeypointResult.BAD for _ in range(self.pose.shape[0])]
                     corrected_angles = [np.pi - self._hip_to_elbow_min_good, np.pi - self._shoulder_wrist_min_good]
         return labels, corrected_angles
             
@@ -412,9 +412,9 @@ class PushUp(Exercise):
     def detect_side(self, pose):
         hip = 2
         shoulder = 4
-        filtered = core.pose.filter_keypoints(pose, self.right_keypoints)
+        filtered = va.pose.filter_keypoints(pose, self.right_keypoints)
         if np.isnan(filtered[hip, :]).any() or np.isnan(filtered[shoulder, :]).any():
-            filtered = core.pose.filter_keypoints(pose, self.left_keypoints)
+            filtered = va.pose.filter_keypoints(pose, self.left_keypoints)
             if np.isnan(filtered[hip, :]).any() or np.isnan(filtered[shoulder, :]).any():
                 return
         
@@ -440,12 +440,12 @@ class PushUp(Exercise):
             return np.array([-arm_angles[0], arm_angles[1]  , 0.0])
 
     def correct(self):
-        labels = [core.feedback.KeypointResult.GOOD for _ in range(self.pose.shape[0])]
+        labels = [va.feedback.KeypointResult.GOOD for _ in range(self.pose.shape[0])]
         num_angles = len(self.rep)
         user_angles = np.array([self.rep[feature][-1] for feature in range(num_angles)])
 
         if not self._shoulder_wrist_correct:
-            labels = [core.feedback.KeypointResult.BAD for _ in range(self.pose.shape[0])]
+            labels = [va.feedback.KeypointResult.BAD for _ in range(self.pose.shape[0])]
             user_angles[1] = self._space_elbow_good
             user_angles[2] = self._shoulder_wrist_good
 
@@ -481,7 +481,7 @@ class PushUp(Exercise):
 
         return corrected_pose
 
-        # labels = [core.feedback.KeypointResult.GOOD for _ in range(self.window[-1].shape[0])]
+        # labels = [va.feedback.KeypointResult.GOOD for _ in range(self.window[-1].shape[0])]
         # user_pose = self.window[-1][:]
         # return user_pose
 

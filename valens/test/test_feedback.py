@@ -1,8 +1,8 @@
 from valens import constants
-from valens import structures as core
-import valens.structures.feedback
-from valens.structures.feedback import KeypointResult
-from valens.structures.pose import Keypoints
+import valens as va
+import valens.feedback
+from valens.feedback import KeypointResult
+from valens.pose import Keypoints
 
 import numpy as np
 import cv2
@@ -18,7 +18,7 @@ def test_feedback_to_json_none():
         [0.5, 0.1]
     ])
 
-    result = core.feedback.to_json(pose, labels, keypoints=keypoints)
+    result = va.feedback.to_json(pose, labels, keypoints=keypoints)
 
     assert 'feedback' not in result
     for i, keypoint in enumerate([str(k) for k in keypoints]):
@@ -36,7 +36,7 @@ def test_feedback_to_json_good():
     ])
     corrected_pose = pose.copy()
 
-    result = core.feedback.to_json(pose, labels, corrected_pose=corrected_pose, keypoints=keypoints)
+    result = va.feedback.to_json(pose, labels, corrected_pose=corrected_pose, keypoints=keypoints)
     for i, keypoint in enumerate([str(k) for k in keypoints]):
         assert result['pose'][keypoint]['x'] == pose[i, 0]
         assert result['pose'][keypoint]['y'] == pose[i, 1]
@@ -58,7 +58,7 @@ def test_feedback_to_json_bad():
     expected_pose[3, 1] += abs(pose[2, 1] - pose[1, 1])
     expected_pose[3, 0] = expected_pose[2, 0]
 
-    result = core.feedback.to_json(pose, labels, corrected_pose=expected_pose, keypoints=keypoints)
+    result = va.feedback.to_json(pose, labels, corrected_pose=expected_pose, keypoints=keypoints)
     for i, keypoint in [[0, 'right_ankle'], [1, 'right_knee']]:
         assert result['pose'][keypoint]['x'] == pose[i, 0]
         assert result['pose'][keypoint]['y'] == pose[i, 1]
@@ -74,13 +74,13 @@ def test_feedback_to_json_bad():
 def test_feedback_topology():
     keypoints = [Keypoints.RANKLE, Keypoints.RKNEE, Keypoints.RHIP, Keypoints.NECK]
     topology = [[0, 1], [1, 2], [2, 3]] # [ankle -> knee, knee -> hip, hip -> neck]
-    feedback_topology = core.feedback.topology(topology, keypoints)
+    feedback_topology = va.feedback.topology(topology, keypoints)
     assert feedback_topology == [['right_ankle', 'right_knee'], ['right_knee', 'right_hip'], ['right_hip', 'neck']]
 
 def test_feedback_draw_on_image_good():
     keypoints = [Keypoints.RANKLE, Keypoints.RKNEE, Keypoints.RHIP, Keypoints.NECK]
     topology = [[0, 1], [1, 2], [2, 3]] # [ankle -> knee, knee -> hip, hip -> neck]
-    feedback_topology = core.feedback.topology(topology, keypoints)
+    feedback_topology = va.feedback.topology(topology, keypoints)
 
     pose = np.array([
         [0.5, 0.7],
@@ -124,17 +124,17 @@ def test_feedback_draw_on_image_good():
     }
 
     expected_frame = np.zeros((constants.POSE_MODEL_WIDTH, constants.POSE_MODEL_HEIGHT, 3), dtype=np.uint8)
-    core.pose.draw_on_image(pose, expected_frame, topology, color=(0, 153, 0))
+    va.pose.draw_on_image(pose, expected_frame, topology, color=(0, 153, 0))
 
     actual_frame = np.zeros((constants.POSE_MODEL_WIDTH, constants.POSE_MODEL_HEIGHT, 3), dtype=np.uint8)
-    core.feedback.draw_on_image(feedback, actual_frame, feedback_topology)
+    va.feedback.draw_on_image(feedback, actual_frame, feedback_topology)
 
     np.testing.assert_equal(actual_frame, expected_frame)
 
 def test_feedback_draw_on_image_bad():
     keypoints = [Keypoints.RANKLE, Keypoints.RKNEE, Keypoints.RHIP, Keypoints.NECK]
     topology = [[0, 1], [1, 2], [2, 3]] # [ankle -> knee, knee -> hip, hip -> neck]
-    feedback_topology = core.feedback.topology(topology, keypoints)
+    feedback_topology = va.feedback.topology(topology, keypoints)
 
     pose = np.array([
         [0.5, 0.7],
@@ -188,7 +188,7 @@ def test_feedback_draw_on_image_bad():
     }
 
     actual_frame = np.zeros((constants.POSE_MODEL_WIDTH, constants.POSE_MODEL_HEIGHT, 3), dtype=np.uint8)
-    core.feedback.draw_on_image(feedback, actual_frame, feedback_topology)
+    va.feedback.draw_on_image(feedback, actual_frame, feedback_topology)
 
     expected_filename = constants.TEST_DATA_DIR + '/feedback_draw_on_image_bad.h5'
     with h5py.File(expected_filename, 'r') as data:

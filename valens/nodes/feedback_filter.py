@@ -1,7 +1,7 @@
 from valens import constants
-from valens.structures.node import Node
-from valens.structures.stream import InputStream, OutputStream, gen_addr_ipc
-from valens.structures import sequence
+from valens.node import Node
+from valens.stream import InputStream, OutputStream, gen_addr_ipc
+from valens import sequence
 
 import numpy as np
 from abc import ABC, abstractmethod

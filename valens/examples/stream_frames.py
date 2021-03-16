@@ -1,7 +1,7 @@
 import valens
 from valens import constants
 from valens.nodes import *
-from valens.structures.stream import InputStream, OutputStream, gen_addr_ipc, gen_addr_tcp
+from valens.stream import InputStream, OutputStream, gen_addr_ipc, gen_addr_tcp
 
 import argparse
 import torch.multiprocessing

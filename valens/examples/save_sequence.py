@@ -1,7 +1,7 @@
 import valens
 from valens import constants
 from valens.nodes import *
-from valens.structures.stream import gen_addr_ipc
+from valens.stream import gen_addr_ipc
 
 import argparse
 import cv2

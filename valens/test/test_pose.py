@@ -1,9 +1,9 @@
 from valens import constants
-import valens.structures as core
+import valens as va
 
-from valens.structures import sequence
-from valens.structures.pose import Keypoints
-from valens.structures.stream import OutputStream, gen_addr_ipc
+from valens import sequence
+from valens.pose import Keypoints
+from valens.stream import OutputStream, gen_addr_ipc
 from valens.nodes import *
 
 import cv2
@@ -16,12 +16,12 @@ import trt_pose.coco
 from trt_pose.draw_objects import DrawObjects
 
 def test_pose_topology_fullset():
-    topology = core.pose.topology()
+    topology = va.pose.topology()
     assert topology == [[15, 13], [13, 11], [16, 14], [14, 12], [11, 12], [5, 7], [6, 8], [7, 9], [8, 10], [1, 2], [0, 1], [0, 2], [1, 3], [2, 4], [3, 5], [4, 6], [17, 0], [17, 5], [17, 6], [17, 11], [17, 12]]
 
 def test_pose_topology_subset():
     keypoints = [Keypoints.RHIP, Keypoints.RKNEE, Keypoints.RANKLE, Keypoints.NECK]
-    topology = core.pose.topology(keypoints)
+    topology = va.pose.topology(keypoints)
     assert topology == [[16, 14], [14, 12], [17, 12]]
 
 def test_pose_filter_keypoints():
@@ -39,7 +39,7 @@ def test_pose_filter_keypoints():
     ])
     full_pose[mask] = pose
     
-    filtered = core.pose.filter_keypoints(full_pose, keypoints)
+    filtered = va.pose.filter_keypoints(full_pose, keypoints)
     np.testing.assert_equal(pose[0, :], filtered[2, :])
     np.testing.assert_equal(pose[1, :], filtered[1, :])
     np.testing.assert_equal(pose[2, :], filtered[0, :])
@@ -52,13 +52,13 @@ def test_pose_trt_to_image():
         peaks = data["peaks"][:]
         expected_frame = data["frame"][:]
     
-    topology = core.pose.topology()
+    topology = va.pose.topology()
 
-    p = core.pose.nn_to_numpy(counts, objects, peaks)
+    p = va.pose.nn_to_numpy(counts, objects, peaks)
 
     capture = cv2.VideoCapture(constants.TEST_DATA_DIR + "/BS_good_Jan15_1_20.mp4")
     _, actual_frame = capture.read()
-    core.pose.draw_on_image(p, actual_frame, topology)
+    va.pose.draw_on_image(p, actual_frame, topology)
 
     np.testing.assert_equal(actual_frame, expected_frame)
 
@@ -75,7 +75,7 @@ def test_pose_multiple_persons():
 
     prev = None
     for i in range(2):
-        pose = core.pose.nn_to_numpy(object_counts[i], objects[i], normalized_peaks[i], prev=prev)
+        pose = va.pose.nn_to_numpy(object_counts[i], objects[i], normalized_peaks[i], prev=prev)
         print(pose)
         prev = pose
 
@@ -84,7 +84,7 @@ def test_pose_multiple_persons():
 #         counts = data["counts"][:]
 #         objects = data["objects"][:]
 #         peaks = data["peaks"][:]
-#         p = core.pose.nn_to_numpy(counts, objects, peaks)
+#         p = va.pose.nn_to_numpy(counts, objects, peaks)
     
 #     capture = cv2.VideoCapture(constants.TEST_DATA_DIR + "/BS_good_Jan15_1_20.mp4")
 #     _, frame = capture.read()
@@ -113,7 +113,7 @@ def test_pose_h5_sink():
         counts = data["counts"][:]
         objects = data["objects"][:]
         peaks = data["peaks"][:]
-        p = core.pose.nn_to_numpy(counts, objects, peaks)
+        p = va.pose.nn_to_numpy(counts, objects, peaks)
 
     expected_filename = constants.TEST_DATA_DIR + "/BS_good_Jan15_1_20.h5"
     actual_filename = constants.TEST_DATA_DIR + "/tmp_pose_sink.h5"
@@ -145,7 +145,7 @@ def test_pose_vectors():
         [0.5, 0.1]
     ])
 
-    vectors = core.pose.vectors(pose)
+    vectors = va.pose.vectors(pose)
 
     assert vectors.shape == (3, 2)
     for i in range(3):
@@ -159,7 +159,7 @@ def test_pose_angles():
         [0.5, 0.1]
     ])
 
-    angles = core.pose.angles(pose, space_frame=[0, 1])
+    angles = va.pose.angles(pose, space_frame=[0, 1])
 
     assert angles.shape == (3,)
     assert angles[0] == np.pi
@@ -175,7 +175,7 @@ def test_pose_transform_zero():
     ])
 
     joint_angles = np.zeros((4,))
-    transformed_pose = core.pose.transform(pose, joint_angles)
+    transformed_pose = va.pose.transform(pose, joint_angles)
     np.testing.assert_allclose(transformed_pose, pose)
 
 def test_pose_transform_nonzero():
@@ -192,10 +192,10 @@ def test_pose_transform_nonzero():
     expected_pose[3, 1] += abs(pose[2, 1] - pose[1, 1])
     expected_pose[3, 0] = expected_pose[2, 0]
 
-    angles = core.pose.angles(expected_pose, space_frame=[0, 1])
+    angles = va.pose.angles(expected_pose, space_frame=[0, 1])
     
     joint_angles = np.array([np.pi - angles[0], -angles[1], angles[2], 0])
-    transformed_pose = core.pose.transform(pose, joint_angles)
+    transformed_pose = va.pose.transform(pose, joint_angles)
 
     np.testing.assert_equal(transformed_pose, expected_pose)
 
@@ -209,7 +209,7 @@ def test_pose_transform_link_length():
     angles = np.array([2.80488046, 1.31963791, 1.27038786]) 
 
     joint_angles = np.array([np.pi - angles[0], -angles[1], angles[2], 0])
-    transformed_pose = core.pose.transform(pose, joint_angles)
+    transformed_pose = va.pose.transform(pose, joint_angles)
 
     for i in range(1, joint_angles.shape[0]):
         joint1 = i - 1

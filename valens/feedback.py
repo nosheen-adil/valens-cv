@@ -1,5 +1,5 @@
 from valens import constants
-from valens.structures.pose import Keypoints
+from valens.pose import Keypoints
 import numpy as np
 import cv2
 

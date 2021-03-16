@@ -1,4 +1,4 @@
-from valens.structures.stream import InputStream, OutputStream
+from valens.stream import InputStream, OutputStream
 
 from abc import ABC, abstractmethod
 import time

@@ -1,6 +1,6 @@
 from valens import constants
-from valens.structures.node import Node
-from valens.structures.stream import OutputStream
+from valens.node import Node
+from valens.stream import OutputStream
 
 import cv2
 

@@ -1,5 +1,5 @@
 from valens import constants
-from valens import structures as core
+import valens as va
 from valens.dtw import dtw1d
 
 import os
@@ -16,14 +16,6 @@ def filter_noise(seq, size=5):
                 seq[k, i, :] = ndimage.median_filter(seq[k, i, :], size)
         else:
             seq[k, :] = ndimage.median_filter(seq[k, :], size)
-
-# def angles(seq, topology, space_frame=[0, 1]):
-#     T = seq.shape[-1]
-#     num_vecs = len(topology) + 1 # for space frame
-#     angles = np.empty((num_vecs - 1, T))
-#     for t in range(T):
-#         angles[:, t] = core.pose.angles(seq[:, :, t], topology)
-#     return angles
 
 def load_features(filenames):
     features = []
@@ -125,3 +117,14 @@ class DtwKnn:
 
         return y_test, align(X_test, self.X_train[min_dist_train], min_dist_path)
         
+def match_frame(x, j, val):
+    n = x.shape[0]
+    curr_dist = abs(x[j] - val)
+    while j < (n - 1):
+        dist = abs(x[j+1] - val)
+        if dist <= curr_dist:
+            j += 1
+            curr_dist = dist
+        else:
+            break
+    return j

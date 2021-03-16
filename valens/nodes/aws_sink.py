@@ -1,11 +1,11 @@
 from valens import constants
-from valens.structures import exercise
-from valens.structures import pose
-from valens.structures import feedback
-from valens.structures.node import Node
-from valens.structures.stream import InputStream, gen_addr_ipc
+from valens import exercise
+from valens import pose
+from valens import feedback
+from valens.node import Node
+from valens.stream import InputStream, gen_addr_ipc
 
-from valens import structures as core
+import valens as va
 
 from abc import abstractmethod
 import cv2

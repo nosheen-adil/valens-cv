@@ -1,7 +1,10 @@
 import valens
 from valens import constants
 from valens.nodes import *
-from valens.structures.stream import gen_addr_ipc
+from valens.stream import gen_addr_ipc
+import valens as va
+import valens.pose
+from valens.pose import Keypoints
 
 import argparse
 import time
@@ -26,11 +29,14 @@ if __name__ == '__main__':
     pose_address = gen_addr_ipc("pose")
     exercise_type = args.input[0:2]
 
+    keypoints = [Keypoints.NECK, Keypoints.RSHOULDER, Keypoints.RHIP, Keypoints.RKNEE, Keypoints.RANKLE, Keypoints.RELBOW, Keypoints.RWRIST]
+    topology = va.pose.topology(keypoints)
     if args.mp4:
         video_sink = Mp4FileSink(
-            frame_address,
+            frame_address=frame_address,
             pose_address=pose_address,
-            exercise_type=exercise_type,
+            left_topology=topology,
+            right_topology=topology,
             name=args.input,
             output_dir=args.outputs_dir,
             fps=int(args.fps))
@@ -38,7 +44,8 @@ if __name__ == '__main__':
         video_sink = LocalDisplaySink(
             frame_address=frame_address,
             pose_address=pose_address,
-            exercise_type=exercise_type)
+            left_topology=topology,
+            right_topology=topology,)
         video_sink.set_max_fps(int(args.fps))
 
     input_url = args.recordings_dir + '/' + args.input + '.mp4'
@@ -46,7 +53,8 @@ if __name__ == '__main__':
         input_file = args.sequences_dir + '/' + args.input + '.h5'
         processes = [VideoSource(
                         frame_address=frame_address,
-                        device_url=input_url),
+                        device_url=int(args.input) if args.input.isdigit() else input_url,
+                        num_outputs=1),
                     PoseSource(
                         pose_address=pose_address,
                         name=args.input,

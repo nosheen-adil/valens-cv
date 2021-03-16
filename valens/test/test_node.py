@@ -1,5 +1,5 @@
-from valens.structures.node import Node
-from valens.structures.stream import gen_addr_ipc, InputStream, OutputStream
+from valens.node import Node
+from valens.stream import gen_addr_ipc, InputStream, OutputStream
 
 import pytest
 import time

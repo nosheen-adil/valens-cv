@@ -1,12 +1,12 @@
 import valens
 from valens import constants
 from valens.nodes import *
-from valens.structures.stream import gen_addr_ipc
+from valens.stream import gen_addr_ipc
 
-from valens import structures as core
-import valens.structures.exercise
-import valens.structures.feedback
-from valens.structures.pose import Keypoints
+import valens as va
+import valens.exercise
+import valens.feedback
+from valens.pose import Keypoints
 
 import argparse
 import time
@@ -31,7 +31,7 @@ if __name__ == '__main__':
     pose_address = gen_addr_ipc("pose")
     feedback_address = gen_addr_ipc("feedback")
     exercise_type = args.input[0:2]
-    exercise = core.exercise.load(exercise_type)
+    exercise = va.exercise.load(exercise_type)
 
     processes = [PoseSource(
                     pose_address=pose_address,

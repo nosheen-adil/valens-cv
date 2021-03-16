@@ -1,7 +1,7 @@
 from valens import constants
-from valens.structures import pose
-from valens.structures.node import Node
-from valens.structures.stream import InputStream
+from valens import pose
+from valens.node import Node
+from valens.stream import InputStream
 
 import cv2
 import h5py

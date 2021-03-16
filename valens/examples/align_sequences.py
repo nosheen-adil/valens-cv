@@ -1,5 +1,5 @@
 from valens import constants
-from valens.structures import sequence, exercise
+from valens import sequence, exercise
 from valens.dtw import dtw1d
 
 import argparse

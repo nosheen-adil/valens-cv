@@ -1,7 +1,7 @@
 from valens import constants
-from valens.structures import sequence
-from valens.structures.node import Node
-from valens.structures.stream import OutputStream
+from valens import sequence
+from valens.node import Node
+from valens.stream import OutputStream
 
 import h5py
 

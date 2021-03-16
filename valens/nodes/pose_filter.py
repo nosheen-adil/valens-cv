@@ -1,7 +1,7 @@
 from valens import constants
-from valens.structures.node import Node
-from valens.structures import pose
-from valens.structures.stream import InputStream, OutputStream
+from valens.node import Node
+from valens import pose
+from valens.stream import InputStream, OutputStream
 
 import cv2
 import json

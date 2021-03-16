@@ -1,12 +1,12 @@
 import valens
 from valens import constants
 from valens.nodes import *
-from valens.structures.stream import gen_addr_ipc
+from valens.stream import gen_addr_ipc
 
-from valens import structures as core
-import valens.structures.exercise
-import valens.structures.feedback
-from valens.structures.pose import Keypoints
+import valens as va
+import valens.exercise
+import valens.feedback
+from valens.pose import Keypoints
 
 import argparse
 import time
@@ -31,21 +31,21 @@ if __name__ == '__main__':
     pose_address = gen_addr_ipc("pose")
     feedback_address = gen_addr_ipc("feedback")
     exercise_type = args.input[0:2]
-    exercise = core.exercise.load(exercise_type)
+    exercise = va.exercise.load(exercise_type)
 
     if args.mp4:
         if args.overlay:
             video_sink = Mp4FileSink(
                 frame_address=gen_addr_ipc("frame"),
                 feedback_address=feedback_address,
-                right_topology=exercise.topology(core.exercise.Side.RIGHT),left_topology=exercise.topology(core.exercise.Side.LEFT),
+                right_topology=exercise.topology(va.exercise.Side.RIGHT),left_topology=exercise.topology(va.exercise.Side.LEFT),
                 name=args.input,
                 output_dir=args.feedback_dir,
                 fps=int(args.fps))
         else:
             video_sink = Mp4FileSink(
                 feedback_address=feedback_address,
-                right_topology=exercise.topology(core.exercise.Side.RIGHT),left_topology=exercise.topology(core.exercise.Side.LEFT),
+                right_topology=exercise.topology(va.exercise.Side.RIGHT),left_topology=exercise.topology(va.exercise.Side.LEFT),
                 name=args.input,
                 output_dir=args.feedback_dir,
                 fps=int(args.fps))
@@ -54,11 +54,11 @@ if __name__ == '__main__':
             video_sink = LocalDisplaySink(
                 frame_address=gen_addr_ipc("frame"),
                 feedback_address=feedback_address,
-                right_topology=exercise.topology(core.exercise.Side.RIGHT),left_topology=exercise.topology(core.exercise.Side.LEFT))
+                right_topology=exercise.topology(va.exercise.Side.RIGHT),left_topology=exercise.topology(va.exercise.Side.LEFT))
         else:
             video_sink = LocalDisplaySink(
                 feedback_address=feedback_address,
-                right_topology=exercise.topology(core.exercise.Side.RIGHT),left_topology=exercise.topology(core.exercise.Side.LEFT))
+                right_topology=exercise.topology(va.exercise.Side.RIGHT),left_topology=exercise.topology(va.exercise.Side.LEFT))
         video_sink.set_max_fps(int(args.fps))
 
     if args.overlay:
