@@ -1,4 +1,3 @@
-from valens import constants
 import valens as va
 
 import h5py
@@ -9,7 +8,7 @@ import numpy as np
 #     for case in cases:
 #         print('case: ', case)
 #         exercise = va.exercise.load('BS')
-#         with h5py.File(constants.DATA_DIR + '/sequences/' + case + '.h5', 'r') as data:
+#         with h5py.File(va.constants.DATA_DIR + '/sequences/' + case + '.h5', 'r') as data:
 #             seq = data['pose'][:]
 
 #         T = seq.shape[-1]
@@ -24,7 +23,7 @@ import numpy as np
 #     for case in cases:
 #         print('case: ', case)
 #         exercise = va.exercise.load('BS')
-#         with h5py.File(constants.DATA_DIR + '/sequences/' + case + '.h5', 'r') as data:
+#         with h5py.File(va.constants.DATA_DIR + '/sequences/' + case + '.h5', 'r') as data:
 #             seq = data['pose'][:]
 
 #         T = seq.shape[-1]
@@ -41,7 +40,7 @@ def test_exercise_bs_num_reps():
     for i, case in enumerate(cases):
         print('case', case)
         exercise = va.exercise.load('BS')
-        with h5py.File(constants.DATA_DIR + '/sequences/' + case + '.h5', 'r') as data:
+        with h5py.File(va.constants.DATA_DIR + '/sequences/' + case + '.h5', 'r') as data:
             seq = data['pose'][:]
 
         T = seq.shape[-1]
@@ -64,7 +63,7 @@ def test_exercise_bs_correct_bad():
     for case in cases:
         print('case: ', case)
         exercise = va.exercise.load('BS')
-        with h5py.File(constants.DATA_DIR + '/sequences/' + case + '.h5', 'r') as data:
+        with h5py.File(va.constants.DATA_DIR + '/sequences/' + case + '.h5', 'r') as data:
             seq = data['pose'][:]
 
         T = seq.shape[-1]
@@ -86,7 +85,7 @@ def test_exercise_bs_correct_good():
     for case in cases:
         print('case: ', case)
         exercise = va.exercise.load('BS')
-        with h5py.File(constants.DATA_DIR + '/sequences/' + case + '.h5', 'r') as data:
+        with h5py.File(va.constants.DATA_DIR + '/sequences/' + case + '.h5', 'r') as data:
             seq = data['pose'][:]
 
         T = seq.shape[-1]
@@ -108,7 +107,7 @@ def test_exercise_bc_detect_side_left():
     for case in cases:
         print('case: ', case)
         exercise = va.exercise.load('BC')
-        with h5py.File(constants.DATA_DIR + '/sequences/' + case + '.h5', 'r') as data:
+        with h5py.File(va.constants.DATA_DIR + '/sequences/' + case + '.h5', 'r') as data:
             seq = data['pose'][:]
 
         T = seq.shape[-1]
@@ -124,7 +123,7 @@ def test_exercise_bc_detect_side_right():
     for case in cases:
         print('case', case)
         exercise = va.exercise.load('BC')
-        with h5py.File(constants.DATA_DIR + '/sequences/' + case + '.h5', 'r') as data:
+        with h5py.File(va.constants.DATA_DIR + '/sequences/' + case + '.h5', 'r') as data:
             seq = data['pose'][:]
 
         T = seq.shape[-1]
@@ -140,7 +139,7 @@ def test_exercise_bc_num_reps():
     for i, case in enumerate(cases):
         print('case', case)
         exercise = va.exercise.load('BC')
-        with h5py.File(constants.DATA_DIR + '/sequences/' + case + '.h5', 'r') as data:
+        with h5py.File(va.constants.DATA_DIR + '/sequences/' + case + '.h5', 'r') as data:
             seq = data['pose'][:]
 
         T = seq.shape[-1]
@@ -163,7 +162,7 @@ def test_exercise_bc_correct_bad():
     for case in cases:
         print('case: ', case)
         exercise = va.exercise.load('BC')
-        with h5py.File(constants.DATA_DIR + '/sequences/' + case + '.h5', 'r') as data:
+        with h5py.File(va.constants.DATA_DIR + '/sequences/' + case + '.h5', 'r') as data:
             seq = data['pose'][:]
 
         T = seq.shape[-1]
@@ -185,7 +184,7 @@ def test_exercise_bc_correct_good():
     for case in cases:
         print('case: ', case)
         exercise = va.exercise.load('BC')
-        with h5py.File(constants.DATA_DIR + '/sequences/' + case + '.h5', 'r') as data:
+        with h5py.File(va.constants.DATA_DIR + '/sequences/' + case + '.h5', 'r') as data:
             seq = data['pose'][:]
 
         T = seq.shape[-1]
@@ -207,7 +206,7 @@ def test_exercise_pu_detect_side_left():
     for case in cases:
         print('case: ', case)
         exercise = va.exercise.load('PU')
-        with h5py.File(constants.DATA_DIR + '/sequences/' + case + '.h5', 'r') as data:
+        with h5py.File(va.constants.DATA_DIR + '/sequences/' + case + '.h5', 'r') as data:
             seq = data['pose'][:]
 
         T = seq.shape[-1]
@@ -223,7 +222,7 @@ def test_exercise_pu_detect_side_right():
     for case in cases:
         print('case: ', case)
         exercise = va.exercise.load('PU')
-        with h5py.File(constants.DATA_DIR + '/sequences/' + case + '.h5', 'r') as data:
+        with h5py.File(va.constants.DATA_DIR + '/sequences/' + case + '.h5', 'r') as data:
             seq = data['pose'][:]
 
         T = seq.shape[-1]
@@ -240,7 +239,7 @@ def test_exercise_pu_num_reps():
     for i, case in enumerate(cases):
         print('case', case)
         exercise = va.exercise.load('PU')
-        with h5py.File(constants.DATA_DIR + '/sequences/' + case + '.h5', 'r') as data:
+        with h5py.File(va.constants.DATA_DIR + '/sequences/' + case + '.h5', 'r') as data:
             seq = data['pose'][:]
 
         T = seq.shape[-1]
@@ -263,7 +262,7 @@ def test_exercise_pu_correct_bad():
     for case in cases:
         print('case: ', case)
         exercise = va.exercise.load('PU')
-        with h5py.File(constants.DATA_DIR + '/sequences/' + case + '.h5', 'r') as data:
+        with h5py.File(va.constants.DATA_DIR + '/sequences/' + case + '.h5', 'r') as data:
             seq = data['pose'][:]
 
         T = seq.shape[-1]
@@ -285,7 +284,7 @@ def test_exercise_pu_correct_good():
     for case in cases:
         print('case: ', case)
         exercise = va.exercise.load('PU')
-        with h5py.File(constants.DATA_DIR + '/sequences/' + case + '.h5', 'r') as data:
+        with h5py.File(va.constants.DATA_DIR + '/sequences/' + case + '.h5', 'r') as data:
             seq = data['pose'][:]
 
         T = seq.shape[-1]

@@ -1,8 +1,5 @@
-from valens import constants
-from valens import structures as va
-from valens.pose import Keypoints
-import valens.sequence
 import valens as va
+from valens.pose import Keypoints
 
 from abc import ABC, abstractmethod
 from enum import Enum
@@ -60,12 +57,6 @@ class Exercise(ABC):
     @abstractmethod
     def transform(self, angles):
         pass
-    
-    def load_classifier(self):
-        pass
-        # self.classifier = va.sequence.DtwKnn()
-        # X_train, y_train = va.sequence.load_features(va.sequence.post_processed_filenames(self.type.value))
-        # self.classifier.fit(X_train, y_train)
 
     def keypoints(self, side=None):
         if side is Side.LEFT or self.side is Side.LEFT:
@@ -125,19 +116,7 @@ class Exercise(ABC):
 
         self.t += 1
 
-    # def eval(self):
-    #     rep = np.array(self.rep)
-    #     va.sequence.filter_noise(rep)
-    #     self.prev_rep = rep
-    #     if self.classifier is not None:
-    #         label, match = self.classifier.predict(rep)
-    #         print('good' if label else 'bad')
-    #         self.prev_label = label
-    #         self.prev_match = match
-    #         self.prev_match_frame = 0
-
     def predict(self):
-        # assert self.classifier is not None
         if len(self.window) == 0:
             return
 
@@ -155,38 +134,13 @@ class Exercise(ABC):
             labels=[va.feedback.KeypointResult.UNDEFINED for _ in range(self.pose.shape[0])],
             keypoints=self.keypoints())
 
-    # def project(self):
-    #     num_angles = len(self.rep)
-    #     user_angles = np.array([self.rep[feature][-1] for feature in range(num_angles)])
-        
-    #     labels, corrected_angles = self.correct(user_angles)
-    #     joint_angles = self.joint_angles(corrected_angles)
-        
-    #     user_pose = self.window[-1][self.angle_mask]
-    #     corrected_pose = va.pose.transform(user_pose, joint_angles)
-    #     return labels, corrected_pose
-        # print(user_angles.shape)
-
-        # j = self.match_frame()
-        # self.prev_match_frame = j
-
-        # hard_threshold = 0.1
-        # soft_threshold = 0.25
-        # threshold = soft_threshold if self.prev_label else hard_threshold
-        # ref_angles = self.prev_match[:, j]
-        # diff = (ref_angles - user_angles)
-        # labels = self.labels(diff / user_angles, threshold)
-
-
 class BodyweightSquat(Exercise):
     def __init__(self):
         super().__init__(
             exercise_type=ExerciseType.BS,
             right_keypoints=[Keypoints.RANKLE, Keypoints.RKNEE, Keypoints.RHIP, Keypoints.NECK],
             left_keypoints=[Keypoints.LANKLE, Keypoints.LKNEE, Keypoints.LHIP, Keypoints.NECK],
-            # angle_mask=np.array([True, True, True, True], dtype=np.bool),
             topology=[[0, 1], [1, 2], [2, 3]]
-            # space_frame=[0, 1]
         )
         self._knee_to_neck_limit = math.radians(120)
         self._knee_to_neck_prev_diff_limit = 1.0
@@ -205,7 +159,6 @@ class BodyweightSquat(Exercise):
         knee = 1
         hip = 2
         filtered = va.pose.filter_keypoints(pose, self.right_keypoints)
-        # print(filtered)
         if np.isnan(filtered[knee, :]).any() or np.isnan(filtered[hip, :]).any():
             filtered = va.pose.filter_keypoints(pose, self.left_keypoints)
             if np.isnan(filtered[knee, :]).any() or np.isnan(filtered[hip, :]).any():
@@ -236,7 +189,6 @@ class BodyweightSquat(Exercise):
         if len(self.rep[0]) > 1:
             dt = 1.0 / 10.0
             diff = ((np.pi - user_angles[2]) - (np.pi - self.rep[2][-2])) / dt
-            print(np.degrees(np.pi - user_angles))
             if abs(diff) < self._knee_to_neck_prev_diff_limit:
                 x = (((np.pi - user_angles[2]) - self._knee_to_neck_min_good) / self._knee_to_neck_min_good)
                 if x < 0 and abs(x) > self._max_percent_diff:
@@ -275,7 +227,6 @@ class BicepCurl(Exercise):
             exercise_type=ExerciseType.BC,
             right_keypoints=[Keypoints.NECK, Keypoints.RHIP, Keypoints.RSHOULDER, Keypoints.RELBOW, Keypoints.RWRIST],
             left_keypoints=[Keypoints.NECK, Keypoints.LHIP, Keypoints.LSHOULDER, Keypoints.LELBOW, Keypoints.LWRIST],
-            # angle_mask=np.array([False, True, True, True, True], dtype=np.bool),
             topology=[[0, 2], [1, 2], [2, 3], [3, 4]],
             window_size=5
         )
@@ -326,11 +277,8 @@ class BicepCurl(Exercise):
         if len(self.rep[0]) > 1:
             dt = 1.0 / 10.0
             diff = ((np.pi - user_angles[1]) - (np.pi - self.rep[1][-2])) / dt
-            # print(np.degrees(np.pi - user_angles))
-            print(math.degrees(np.pi - user_angles[0]), diff, abs(((np.pi - user_angles[0]) - self._hip_to_elbow_min_good) / self._hip_to_elbow_min_good))
             if abs(diff) < self._shoulder_wrist_diff_limit:
                 x = (((np.pi - user_angles[0]) - self._hip_to_elbow_min_good) / self._hip_to_elbow_min_good)
-                print('x', x)
                 if x > 0 and x > self._max_percent_diff:
                     print('bad!')
                     labels = [va.feedback.KeypointResult.BAD for _ in range(self.pose.shape[0])]
@@ -386,7 +334,6 @@ class PushUp(Exercise):
         self._space_elbow_good = math.radians(45)
     
     def started(self, angles):
-        # print(np.degrees(np.pi - angles[2]))
         if self._initial_arm_link_lengths is None:
             initial_pose = self.pose.copy()
             L = np.linalg.norm(initial_pose[4, :] - initial_pose[6, :])
@@ -401,7 +348,6 @@ class PushUp(Exercise):
     def finished(self, angles):
         k = 2
         if self._shoulder_wrist_frames_from_start_curr < self._shoulder_wrist_frames_from_start:
-            print(math.degrees(np.pi - angles[k]))
             if self._shoulder_wrist_correct is True and (np.pi - angles[k]) > self._shoulder_wrist_start_limit:
                 self._shoulder_wrist_correct = False
                 print('bad')
@@ -475,15 +421,10 @@ class PushUp(Exercise):
 
         joint_angles = self.arm_joint_angles(angles[1:])
         _corrected_pose = va.pose.transform(zero_pose, Slist, joint_angles)
-        print(_corrected_pose)
         corrected_pose = self.pose.copy()
         corrected_pose[4:6, :] = _corrected_pose[0:2, :]
 
         return corrected_pose
-
-        # labels = [va.feedback.KeypointResult.GOOD for _ in range(self.window[-1].shape[0])]
-        # user_pose = self.window[-1][:]
-        # return user_pose
 
 def load(exercise_type_str):
     exercise_type = ExerciseType(exercise_type_str)
