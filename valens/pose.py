@@ -1,11 +1,10 @@
-from valens import constants
+import valens as va
 
 import  cv2
-import json
-import numpy as np
-import trt_pose.coco
 from enum import Enum
+import json
 import modern_robotics as mr
+import numpy as np
 import sys
 
 class Keypoints(Enum):
@@ -51,7 +50,7 @@ class Keypoints(Enum):
         ]
         return names[self.value]
 
-def topology(keypoints=[], human_pose_path=constants.POSE_JSON):
+def topology(keypoints=[], human_pose_path=va.constants.POSE_JSON):
     if not keypoints:
         keypoints = [k for k in Keypoints]
 
@@ -150,7 +149,7 @@ def nn_to_numpy(object_counts, objects, normalized_peaks, min_keypoints=7, prev=
     _nn_to_numpy(data, person_idx, objects, normalized_peaks)
     return data
 
-def scale(pose, width=constants.POSE_MODEL_WIDTH, height=constants.POSE_MODEL_HEIGHT, round_coords=False):
+def scale(pose, width=va.constants.POSE_MODEL_WIDTH, height=va.constants.POSE_MODEL_HEIGHT, round_coords=False):
     s = pose.copy()
     s[:, 0] *= width
     s[:, 1] *= height
@@ -220,14 +219,9 @@ def transform(zero_pose, Slist, joint_angles):
     _zero_pose -= space_frame
 
     # create screw axis for each joint
-    # ankle, knee, hip, neck
-    # Slist = np.empty((6, num_joints))
-    # for i in range(num_joints):
-    #     Slist[:, i] = [0, 0, 1, L[i], 0, 0]
-
     pose = np.empty((num_joints, 2))
     for i in range(num_joints):
-        # calculate zero frame of each joint (excluding the ankle) from pose
+        # calculate zero frame of each joint
         M = np.array([
             [1, 0, 0, _zero_pose[i, 0]],
             [0, 1, 0, _zero_pose[i, 1]],
@@ -236,6 +230,7 @@ def transform(zero_pose, Slist, joint_angles):
         ])
 
         # calculate iterative PoE and apply to each joint (excluding the ankle)
+        # TODO: do not recompute PoE for joints
         T = mr.FKinSpace(M, Slist[:, 0:i+1], joint_angles[0:i+1])
 
         # extract pos from each transformation matrix and return the transformed pose
@@ -244,7 +239,3 @@ def transform(zero_pose, Slist, joint_angles):
 
     pose += space_frame
     return pose
-
-def reflect(pose):
-    for i in range(pose.shape[0]):
-        pose[i, 0] = 1 - pose[i, 0]

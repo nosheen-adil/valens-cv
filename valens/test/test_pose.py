@@ -1,19 +1,13 @@
-from valens import constants
 import valens as va
-
-from valens import sequence
 from valens.pose import Keypoints
 from valens.stream import OutputStream, gen_addr_ipc
 from valens.nodes import *
 
 import cv2
 import h5py
-import json
 import numpy as np
 import os
 import pytest
-import trt_pose.coco
-from trt_pose.draw_objects import DrawObjects
 
 def test_pose_topology_fullset():
     topology = va.pose.topology()
@@ -46,7 +40,7 @@ def test_pose_filter_keypoints():
     np.testing.assert_equal(pose[3, :], filtered[3, :])
 
 def test_pose_trt_to_image():
-    with h5py.File(constants.TEST_DATA_DIR + "/structures_pose_trt_to_image.h5", "r") as data:
+    with h5py.File(va.constants.TEST_DATA_DIR + "/structures_pose_trt_to_image.h5", "r") as data:
         counts = data["counts"][:]
         objects = data["objects"][:]
         peaks = data["peaks"][:]
@@ -56,7 +50,7 @@ def test_pose_trt_to_image():
 
     p = va.pose.nn_to_numpy(counts, objects, peaks)
 
-    capture = cv2.VideoCapture(constants.TEST_DATA_DIR + "/BS_good_Jan15_1_20.mp4")
+    capture = cv2.VideoCapture(va.constants.TEST_DATA_DIR + "/BS_good_Jan15_1_20.mp4")
     _, actual_frame = capture.read()
     va.pose.draw_on_image(p, actual_frame, topology)
 
@@ -67,8 +61,7 @@ def test_pose_multiple_persons():
     objects = []
     normalized_peaks = []
     for i in range(2):
-        with h5py.File(constants.TEST_DATA_DIR + "/multiperson_nn_frame_" + str(i) + ".h5", "r") as data:
-            print(list(data.keys()))
+        with h5py.File(va.constants.TEST_DATA_DIR + "/multiperson_nn_frame_" + str(i) + ".h5", "r") as data:
             object_counts.append(data['object_counts'][:])
             objects.append(data['objects'][:])
             normalized_peaks.append(data['normalized_peaks'][:])
@@ -76,17 +69,16 @@ def test_pose_multiple_persons():
     prev = None
     for i in range(2):
         pose = va.pose.nn_to_numpy(object_counts[i], objects[i], normalized_peaks[i], prev=prev)
-        print(pose)
         prev = pose
 
 # def test_pose_video_sink():
-#     with h5py.File(constants.TEST_DATA_DIR + "/structures_pose_trt_to_image.h5", "r") as data:
+#     with h5py.File(va.constants.TEST_DATA_DIR + "/structures_pose_trt_to_image.h5", "r") as data:
 #         counts = data["counts"][:]
 #         objects = data["objects"][:]
 #         peaks = data["peaks"][:]
 #         p = va.pose.nn_to_numpy(counts, objects, peaks)
     
-#     capture = cv2.VideoCapture(constants.TEST_DATA_DIR + "/BS_good_Jan15_1_20.mp4")
+#     capture = cv2.VideoCapture(va.constants.TEST_DATA_DIR + "/BS_good_Jan15_1_20.mp4")
 #     _, frame = capture.read()
 
 #     total_frames = capture.get(cv2.CAP_PROP_FRAME_COUNT)
@@ -109,14 +101,14 @@ def test_pose_multiple_persons():
 #     sink.join()
 
 def test_pose_h5_sink():
-    with h5py.File(constants.TEST_DATA_DIR + "/structures_pose_trt_to_image.h5", "r") as data:
+    with h5py.File(va.constants.TEST_DATA_DIR + "/structures_pose_trt_to_image.h5", "r") as data:
         counts = data["counts"][:]
         objects = data["objects"][:]
         peaks = data["peaks"][:]
         p = va.pose.nn_to_numpy(counts, objects, peaks)
 
-    expected_filename = constants.TEST_DATA_DIR + "/BS_good_Jan15_1_20.h5"
-    actual_filename = constants.TEST_DATA_DIR + "/tmp_pose_sink.h5"
+    expected_filename = va.constants.TEST_DATA_DIR + "/BS_good_Jan15_1_20.h5"
+    actual_filename = va.constants.TEST_DATA_DIR + "/tmp_pose_sink.h5"
 
     pose_addr = gen_addr_ipc("pose")
     pose_stream = OutputStream(pose_addr)
@@ -167,55 +159,95 @@ def test_pose_angles():
     assert angles[2] == np.pi / 2
 
 def test_pose_transform_zero():
-    pose = np.array([
+    zero_pose = np.array([
         [0.5, 0.7],
         [0.5, 0.5],
         [0.5, 0.35],
         [0.5, 0.1]
     ])
+
+    num_joints = zero_pose.shape[0]
+    L = [0.0]
+    for i in range(1, num_joints):
+        joint1 = i - 1
+        joint2 = i
+
+        dist = np.linalg.norm(zero_pose[joint2, :] - zero_pose[joint1, :])
+        L.append(dist + L[i - 1])
+
+    Slist = np.empty((6, num_joints))
+    for i in range(num_joints):
+        Slist[:, i] = [0, 0, 1, -L[i], 0, 0]
 
     joint_angles = np.zeros((4,))
-    transformed_pose = va.pose.transform(pose, joint_angles)
-    np.testing.assert_allclose(transformed_pose, pose)
+    transformed_pose = va.pose.transform(zero_pose, Slist, joint_angles)
+    np.testing.assert_allclose(transformed_pose, zero_pose)
 
 def test_pose_transform_nonzero():
-    pose = np.array([
+    zero_pose = np.array([
         [0.5, 0.7],
         [0.5, 0.5],
         [0.5, 0.35],
         [0.5, 0.1]
     ])
 
-    expected_pose = pose.copy()
-    expected_pose[2, 0] -= abs(pose[2, 1] - pose[1, 1])
-    expected_pose[2, 1] = pose[1, 1]
-    expected_pose[3, 1] += abs(pose[2, 1] - pose[1, 1])
+    num_joints = zero_pose.shape[0]
+    L = [0.0]
+    for i in range(1, num_joints):
+        joint1 = i - 1
+        joint2 = i
+
+        dist = np.linalg.norm(zero_pose[joint2, :] - zero_pose[joint1, :])
+        L.append(dist + L[i - 1])
+
+    Slist = np.empty((6, num_joints))
+    for i in range(num_joints):
+        Slist[:, i] = [0, 0, 1, -L[i], 0, 0]
+
+    expected_pose = zero_pose.copy()
+    expected_pose[2, 0] -= abs(zero_pose[2, 1] - zero_pose[1, 1])
+    expected_pose[2, 1] = zero_pose[1, 1]
+    expected_pose[3, 1] += abs(zero_pose[2, 1] - zero_pose[1, 1])
     expected_pose[3, 0] = expected_pose[2, 0]
 
     angles = va.pose.angles(expected_pose, space_frame=[0, 1])
     
     joint_angles = np.array([np.pi - angles[0], -angles[1], angles[2], 0])
-    transformed_pose = va.pose.transform(pose, joint_angles)
+    transformed_pose = va.pose.transform(zero_pose, Slist, joint_angles)
 
     np.testing.assert_equal(transformed_pose, expected_pose)
 
 def test_pose_transform_link_length():
-    pose = np.array([
+    zero_pose = np.array([
         [0.5, 0.7],
         [0.5, 0.5],
         [0.5, 0.35],
         [0.5, 0.1]
     ])
+
+    num_joints = zero_pose.shape[0]
+    L = [0.0]
+    for i in range(1, num_joints):
+        joint1 = i - 1
+        joint2 = i
+
+        dist = np.linalg.norm(zero_pose[joint2, :] - zero_pose[joint1, :])
+        L.append(dist + L[i - 1])
+
+    Slist = np.empty((6, num_joints))
+    for i in range(num_joints):
+        Slist[:, i] = [0, 0, 1, -L[i], 0, 0]
+
     angles = np.array([2.80488046, 1.31963791, 1.27038786]) 
 
     joint_angles = np.array([np.pi - angles[0], -angles[1], angles[2], 0])
-    transformed_pose = va.pose.transform(pose, joint_angles)
+    transformed_pose = va.pose.transform(zero_pose, Slist, joint_angles)
 
     for i in range(1, joint_angles.shape[0]):
         joint1 = i - 1
         joint2 = i
 
-        dist1 = np.linalg.norm(pose[joint2, :] - pose[joint1, :])
+        dist1 = np.linalg.norm(zero_pose[joint2, :] - zero_pose[joint1, :])
         dist2 = np.linalg.norm(transformed_pose[joint2, :] - transformed_pose[joint1, :])
         
         np.testing.assert_allclose(dist1, dist2)
