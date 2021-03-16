@@ -1,12 +1,11 @@
-from valens import constants
 import valens as va
 import valens.feedback
 from valens.feedback import KeypointResult
 from valens.pose import Keypoints
 
-import numpy as np
 import cv2
 import h5py
+import numpy as np
 
 def test_feedback_to_json_none():
     keypoints = [Keypoints.RANKLE, Keypoints.RKNEE, Keypoints.RHIP, Keypoints.NECK]
@@ -123,10 +122,10 @@ def test_feedback_draw_on_image_good():
         }
     }
 
-    expected_frame = np.zeros((constants.POSE_MODEL_WIDTH, constants.POSE_MODEL_HEIGHT, 3), dtype=np.uint8)
+    expected_frame = np.zeros((va.constants.POSE_MODEL_WIDTH, va.constants.POSE_MODEL_HEIGHT, 3), dtype=np.uint8)
     va.pose.draw_on_image(pose, expected_frame, topology, color=(0, 153, 0))
 
-    actual_frame = np.zeros((constants.POSE_MODEL_WIDTH, constants.POSE_MODEL_HEIGHT, 3), dtype=np.uint8)
+    actual_frame = np.zeros((va.constants.POSE_MODEL_WIDTH, va.constants.POSE_MODEL_HEIGHT, 3), dtype=np.uint8)
     va.feedback.draw_on_image(feedback, actual_frame, feedback_topology)
 
     np.testing.assert_equal(actual_frame, expected_frame)
@@ -187,10 +186,10 @@ def test_feedback_draw_on_image_bad():
         }
     }
 
-    actual_frame = np.zeros((constants.POSE_MODEL_WIDTH, constants.POSE_MODEL_HEIGHT, 3), dtype=np.uint8)
+    actual_frame = np.zeros((va.constants.POSE_MODEL_WIDTH, va.constants.POSE_MODEL_HEIGHT, 3), dtype=np.uint8)
     va.feedback.draw_on_image(feedback, actual_frame, feedback_topology)
 
-    expected_filename = constants.TEST_DATA_DIR + '/feedback_draw_on_image_bad.h5'
+    expected_filename = va.constants.TEST_DATA_DIR + '/feedback_draw_on_image_bad.h5'
     with h5py.File(expected_filename, 'r') as data:
         expected_frame = data['image'][:]
         

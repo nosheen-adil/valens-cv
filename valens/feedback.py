@@ -1,10 +1,10 @@
-from valens import constants
+import valens as va
 from valens.pose import Keypoints
-import numpy as np
-import cv2
 
+import cv2
 from enum import Enum
 import math
+import numpy as np
 
 class KeypointResult(Enum):
     GOOD = 'good'
@@ -58,7 +58,7 @@ def topology(topology, keypoints):
     return result
     
 
-def scale(feedback, width=constants.POSE_MODEL_WIDTH, height=constants.POSE_MODEL_HEIGHT):
+def scale(feedback, width=va.constants.POSE_MODEL_WIDTH, height=va.constants.POSE_MODEL_HEIGHT):
     result = feedback.copy()
     for keypoint in result['pose'].keys():
         if math.isnan(result['pose'][keypoint]['x']):
