@@ -6,46 +6,47 @@ import numpy as np
 import trt_pose.coco
 from enum import Enum
 import modern_robotics as mr
+import sys
 
 class Keypoints(Enum):
     NOSE = 0
-    REYE = 1
-    LEYE = 2
-    REAR = 3
-    LEAR = 4
-    RSHOULDER = 5
-    LSHOULDER = 6
-    RELBOW = 7
-    LELBOW = 8
-    RWRIST = 9
-    LWRIST = 10
-    RHIP = 11
-    LHIP = 12
-    RKNEE = 13
-    LKNEE = 14
-    RANKLE = 15
-    LANKLE = 16
+    LEYE = 1
+    REYE = 2
+    LEAR = 3
+    REAR = 4
+    LSHOULDER = 5
+    RSHOULDER = 6
+    LELBOW = 7
+    RELBOW = 8
+    LWRIST = 9
+    RWRIST = 10
+    LHIP = 11
+    RHIP = 12
+    LKNEE = 13
+    RKNEE = 14
+    LANKLE = 15
+    RANKLE = 16
     NECK = 17
 
     def __str__(self):
         names = [
             'neck', 
-            'right_eye',
             'left_eye',
-            'right_ear',
+            'right_eye',
             'left_ear',
-            'right_shoulder',
+            'right_ear',
             'left_shoulder',
-            'right_elbow',
+            'right_shoulder',
             'left_elbow',
-            'right_wrist',
+            'right_elbow',
             'left_wrist',
-            'right_hip',
+            'right_wrist',
             'left_hip',
-            'right_knee',
+            'right_hip',
             'left_knee',
-            'right_ankle',
+            'right_knee',
             'left_ankle',
+            'right_ankle',
             'neck'
         ]
         return names[self.value]
@@ -65,15 +66,9 @@ def topology(keypoints=[], human_pose_path=constants.POSE_JSON):
         b = Keypoints(skeleton[k][1] - 1)
 
         if a in keypoints and b in keypoints:
-            topology.append([keypoints.index(a), keypoints.index(b)])
+            topology.append([a.value, b.value])
 
     return topology
-
-# def keypoint_mask(keypoints):
-#     mask = np.zeros((len(Keypoints),), dtype=np.bool)
-#     for keypoint in keypoints:
-#         mask[keypoint.value] = 1
-#     return mask
 
 def filter_keypoints(pose, keypoints):
     num_joints = len(keypoints)
@@ -82,7 +77,7 @@ def filter_keypoints(pose, keypoints):
         filtered[i, :] = pose[keypoint.value, :]
     return filtered 
 
-def _nn_find_person_idx(object_counts, objects, min_keypoints):
+def _nn_find_person_idx(object_counts, objects, min_keypoints, prev):
     count = int(object_counts[0])
     results = {}
     idx = []
@@ -98,22 +93,12 @@ def _nn_find_person_idx(object_counts, objects, min_keypoints):
         if non_neg >= min_keypoints:
             # print(non_neg)
             idx.append(i)
-    if len(idx) > 1:
-        print("Warning:", len(idx), "objects detected")
-    if len(idx) == 0:
-        return -1
-    return idx[0]
 
-def nn_to_numpy(object_counts, objects, normalized_peaks, min_keypoints=10):
-    idx = _nn_find_person_idx(object_counts, objects, min_keypoints)
-    obj = objects[0][idx]
-    C = obj.shape[0]
-    data = np.empty((C, 2))
-    data[:] = np.nan
+    return idx
 
-    if idx < 0:
-        return data
-
+def _nn_to_numpy(data, person_idx, objects, normalized_peaks):
+    C = 18
+    obj = objects[0][person_idx]
     for j in range(C):
         k = int(obj[j])
         if k >= 0:
@@ -123,6 +108,46 @@ def nn_to_numpy(object_counts, objects, normalized_peaks, min_keypoints=10):
             data[j, 0] = x
             data[j, 1] = y
 
+def nn_to_numpy(object_counts, objects, normalized_peaks, min_keypoints=7, prev=None, center=[0.5, 0.5]):
+    C = 18
+    data = np.empty((18, 2))
+    data[:] = np.nan
+
+    idx = _nn_find_person_idx(object_counts, objects, min_keypoints, prev)
+    num_persons = len(idx)
+    if num_persons == 0:
+        return data
+    elif num_persons == 1:
+        person_idx = idx[0]
+    else:
+        print("Warning:", len(idx), "objects detected")
+
+        min_dist = sys.maxsize
+        min_dist_idx = -1
+        data = np.tile(data, (num_persons, 1, 1))
+        if prev is None:
+            print("No previous pose to match")
+            hip = Keypoints.RHIP.value
+            for i, person_idx in enumerate(idx):
+                _nn_to_numpy(data[i, :, :], person_idx, objects, normalized_peaks)
+                dist = np.linalg.norm(center - data[i, hip, :])
+                if dist < min_dist:
+                    min_dist = dist
+                    min_dist_idx = i
+        else:
+            prev_mask = np.logical_not(np.isnan(prev))
+            for i, person_idx in enumerate(idx):
+                _nn_to_numpy(data[i, :, :], person_idx, objects, normalized_peaks)
+                data_mask = np.logical_and(np.logical_not(np.isnan(data[i, :, :])), prev_mask)
+                dist = np.sum(np.linalg.norm(prev[data_mask] - data[i, :, :][data_mask]))
+                dist += abs(np.count_nonzero(data_mask) - np.count_nonzero(prev_mask)) * 1000
+                if dist < min_dist:
+                    min_dist = dist
+                    min_dist_idx = i
+        print("Found match to prev pose with person:", person_idx)
+        return data[min_dist_idx, :, :]
+
+    _nn_to_numpy(data, person_idx, objects, normalized_peaks)
     return data
 
 def scale(pose, width=constants.POSE_MODEL_WIDTH, height=constants.POSE_MODEL_HEIGHT, round_coords=False):
@@ -152,63 +177,60 @@ def draw_on_image(pose, frame, topology, color=(0, 255, 0)):
         if not np.any(nan[c_a, :]) and not np.any(nan[c_b, :]):
             cv2.line(frame, (s[c_a, 0], s[c_a, 1]), (s[c_b, 0], s[c_b, 1]), color, 2)
 
-def vectors(pose, topology):
-    num_vecs = len(topology)
+def vectors(pose):
+    num_vecs = pose.shape[0] - 1
     vectors = np.empty((num_vecs, 2))
 
     for v in range(num_vecs):
         for i in range(2):
-            vectors[v, i] =  np.array([pose[topology[v][1], i] - pose[topology[v][0], i]])
+            joint1 = v
+            joint2 = v + 1
+            vectors[v, i] =  np.array([pose[joint2, i] - pose[joint1, i]])
         vectors[v] /= np.linalg.norm(vectors[v])
     return vectors
 
-def angles(pose, topology, space_frame=[0, 1]):
-    vecs = vectors(pose, topology)
-    vecs = np.vstack((space_frame, vecs))
-
+def angles(pose, space_frame=[0, 1]):
+    vecs = vectors(pose)
+    if space_frame is not None:
+        vecs = np.vstack((space_frame, vecs))
     num_vecs = vecs.shape[0]
-    angles = np.empty((len(topology),))
-    for c in range(len(topology)):
-        joint1 = topology[c][0]
-        joint2 = topology[c][1]
-        angles[c] = np.arccos(vecs[joint2, 0] * vecs[joint1, 0] + vecs[joint2, 1] * vecs[joint1, 1])
+    angles = np.empty((vecs.shape[0] - 1,))
+    for c in range(angles.shape[0]):
+        vec1 = c
+        vec2 = c + 1
+        angles[c] = np.arccos(vecs[vec2, 0] * vecs[vec1, 0] + vecs[vec2, 1] * vecs[vec1, 1])
     return angles
 
-
-def transform(ref_pose, joint_angles, topology):
-    num_links = len(topology)
-    num_joints = num_links + 1
+def transform(zero_pose, Slist, joint_angles):
+    num_joints = zero_pose.shape[0]
+    num_links = num_joints - 1
     assert len(joint_angles) == num_joints
-    assert ref_pose.shape[0]
 
     # calculate link lengths based on pos of joints in pose
     L = [0.0]
     for i in range(1, num_joints):
-        joint1 = topology[i-1][0]
-        joint2 = topology[i-1][1]
+        joint1 = i - 1
+        joint2 = i
 
-        dist = np.linalg.norm(ref_pose[joint2, :] - ref_pose[joint1, :])
+        dist = np.linalg.norm(zero_pose[joint2, :] - zero_pose[joint1, :])
         L.append(dist + L[i - 1])
 
-    zero_pose = np.empty((num_joints, 2))
-    for i in range(num_joints):
-        zero_pose[i, :] = [ref_pose[0, 0], ref_pose[0, 1] - L[i]]
-
+    _zero_pose = zero_pose.copy()
     space_frame = zero_pose[0, :].copy()
-    zero_pose -= space_frame
+    _zero_pose -= space_frame
 
     # create screw axis for each joint
     # ankle, knee, hip, neck
-    Slist = np.empty((6, num_joints))
-    for i in range(num_joints):
-        Slist[:, i] = [0, 0, 1, -L[i], 0, 0]
+    # Slist = np.empty((6, num_joints))
+    # for i in range(num_joints):
+    #     Slist[:, i] = [0, 0, 1, L[i], 0, 0]
 
     pose = np.empty((num_joints, 2))
     for i in range(num_joints):
         # calculate zero frame of each joint (excluding the ankle) from pose
         M = np.array([
-            [1, 0, 0, zero_pose[i, 0]],
-            [0, 1, 0, zero_pose[i, 1]],
+            [1, 0, 0, _zero_pose[i, 0]],
+            [0, 1, 0, _zero_pose[i, 1]],
             [0, 0, 1, 0],
             [0, 0, 0, 1]
         ])
@@ -222,3 +244,7 @@ def transform(ref_pose, joint_angles, topology):
 
     pose += space_frame
     return pose
+
+def reflect(pose):
+    for i in range(pose.shape[0]):
+        pose[i, 0] = 1 - pose[i, 0]

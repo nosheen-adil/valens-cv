@@ -25,6 +25,6 @@ class PoseSource(Node):
             self.stop()
             return
 
-        p = self.seq[:, :, self.t].copy('C')
-        self.output_streams["pose"].send(p)
+        pose = self.seq[:, :, self.t].copy('C')
+        self.output_streams["pose"].send(pose)
         self.t += 1

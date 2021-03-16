@@ -21,9 +21,13 @@ class PoseFilter(Node):
 
         self.model_path = model_path
         self.pose_path = pose_path
+        self.prev = None
 
     def prepare(self):
-        self.parse_objects = ParseObjects(pose.get_topology(self.pose_path))
+        with open(self.pose_path, 'r') as f:
+            human_pose = json.load(f)
+        topology = trt_pose.coco.coco_category_to_topology(human_pose)
+        self.parse_objects = ParseObjects(topology)
 
         self.model_trt = TRTModule()
         print(self.name + ": Loading model")
@@ -43,7 +47,8 @@ class PoseFilter(Node):
         cmap, paf = self.model_trt(data)
         cmap, paf = cmap.detach().cpu(), paf.detach().cpu()
         counts, objects, peaks = self.parse_objects(cmap, paf)
-        p = pose.nn_to_numpy(counts, objects, peaks)
+        p = pose.nn_to_numpy(counts, objects, peaks, prev=self.prev)
+        self.prev = p.copy()
         self.output_streams["pose"].send(p)
         
     def preprocess(self, frame):
