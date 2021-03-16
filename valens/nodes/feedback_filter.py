@@ -14,7 +14,6 @@ class FeedbackFilter(Node):
         self.input_streams['pose'] = InputStream(pose_address)
         self.output_streams['feedback'] = OutputStream(feedback_address)
         self.exercise = exercise
-        self.exercise.load_classifier()
 
     def process(self):
         pose = self.input_streams['pose'].recv()

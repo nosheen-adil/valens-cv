@@ -16,7 +16,7 @@ class Side(Enum):
     LEFT = 1
 
 class Exercise(ABC):
-    def __init__(self, exercise_type, right_keypoints, left_keypoints, topology, window_size=5):
+    def __init__(self, exercise_type, right_keypoints, left_keypoints, topology, window_size=2):
         self.type = exercise_type
         self.left_keypoints = left_keypoints
         self.right_keypoints = right_keypoints
@@ -227,8 +227,7 @@ class BicepCurl(Exercise):
             exercise_type=ExerciseType.BC,
             right_keypoints=[Keypoints.NECK, Keypoints.RHIP, Keypoints.RSHOULDER, Keypoints.RELBOW, Keypoints.RWRIST],
             left_keypoints=[Keypoints.NECK, Keypoints.LHIP, Keypoints.LSHOULDER, Keypoints.LELBOW, Keypoints.LWRIST],
-            topology=[[0, 2], [1, 2], [2, 3], [3, 4]],
-            window_size=5
+            topology=[[0, 2], [1, 2], [2, 3], [3, 4]]
         )
         self._angle_mask = np.array([False, True, True, True, True], dtype=np.bool)
         self._shoulder_wrist_limit = math.radians(120)
@@ -317,8 +316,7 @@ class PushUp(Exercise):
             exercise_type=ExerciseType.PU,
             right_keypoints=[Keypoints.RANKLE, Keypoints.RKNEE, Keypoints.RHIP, Keypoints.NECK, Keypoints.RSHOULDER, Keypoints.RELBOW, Keypoints.RWRIST],
             left_keypoints=[Keypoints.LANKLE, Keypoints.LKNEE, Keypoints.LHIP, Keypoints.NECK, Keypoints.LSHOULDER, Keypoints.LELBOW, Keypoints.LWRIST],
-            topology=[[0, 1], [1, 2], [2, 4], [4, 3], [4, 5], [5, 6]],
-            window_size=5
+            topology=[[0, 1], [1, 2], [2, 4], [4, 3], [4, 5], [5, 6]]
         )
         self._space_neck_limit = math.radians(20)
         

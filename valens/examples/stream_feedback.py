@@ -9,9 +9,14 @@ import valens.feedback
 from valens.pose import Keypoints
 
 import argparse
+import cv2
 import time
 import torch.multiprocessing
 from torch.multiprocessing import set_start_method
+
+def get_capture_fps(name):
+    c = cv2.VideoCapture(name)
+    return int(c.get(cv2.CAP_PROP_FPS))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Generate a three stage pipeline to stream pose sequences to the local display')
@@ -65,11 +70,14 @@ if __name__ == '__main__':
         processes = [
                     VideoSource(
                         gen_addr_ipc('frame'),
-                        device_url=args.recordings_dir + '/' + args.input + '.mp4'),
+                        device_url=args.recordings_dir + '/' + args.input + '.mp4',
+                        max_fps=int(args.fps)),
                     PoseSource(
                         pose_address=pose_address,
                         name=args.input,
-                        input_dir=args.sequences_dir),
+                        input_dir=args.sequences_dir,
+                        original_fps=get_capture_fps(args.recordings_dir + '/' + args.input + '.mp4'),
+                        max_fps=int(args.fps)),
                     FeedbackFilter(
                         pose_address=pose_address,
                         feedback_address=feedback_address,
