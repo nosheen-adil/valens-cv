@@ -1,7 +1,6 @@
 from valens import constants
-from valens import pose
 from valens.node import Node
-from valens.stream import InputStream
+from valens.stream import InputStream, gen_addr_ipc
 
 import cv2
 import h5py
@@ -10,7 +9,7 @@ import numpy as np
 import trt_pose.coco
 
 class PoseSink(Node):
-    def __init__(self, pose_address, total_frames, filename, human_pose_path=constants.POSE_JSON):
+    def __init__(self, total_frames, filename, pose_address=gen_addr_ipc("pose"), human_pose_path=constants.POSE_JSON):
         super().__init__("PoseSink")
         self.input_streams["pose"] = InputStream(pose_address)
         with open(human_pose_path, 'r') as f:
@@ -25,13 +24,13 @@ class PoseSink(Node):
         self.data[:] = np.nan
 
     def process(self):
-        p = self.input_streams["pose"].recv() # total_keypoints x 2
-        if p is None:
+        pose, _ = self.input_streams["pose"].recv() # total_keypoints x 2
+        if pose is None:
             self.save()
             self.stop()
             return
 
-        self.data[:, :, self.frames] = p
+        self.data[:, :, self.frames] = pose
         self.frames += 1
 
     def save(self):

@@ -34,8 +34,9 @@ if __name__ == '__main__':
     exercise = va.exercise.load(exercise_type)
 
     processes = [PoseSource(
-                    pose_address=pose_address,
+                    user_id='nosheen123',
                     name=args.input,
+                    pose_address=pose_address,
                     input_dir=args.sequences_dir),
                 FeedbackFilter(
                     pose_address=pose_address,

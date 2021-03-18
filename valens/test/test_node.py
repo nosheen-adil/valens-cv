@@ -1,10 +1,10 @@
 from valens.node import Node
-from valens.stream import gen_addr_ipc, InputStream, OutputStream
+from valens.stream import gen_set_id, gen_sync_metadata, gen_addr_ipc, InputStream, OutputStream
 
 import pytest
 import time
 
-def test_sentinel_stop():
+def test_node_sentinel_stop():
     class Source(Node):
         def __init__(self, name, total_count=5, output_addr=gen_addr_ipc("test")):
             super().__init__(name)
@@ -17,7 +17,9 @@ def test_sentinel_stop():
                 self.stop()
                 return
             
-            self.output_streams["out"].send({"hey":"there"})
+            set_id = gen_set_id()
+            sync = gen_sync_metadata("user", "exercise", set_id)
+            self.output_streams["out"].send({"hey":"there"}, sync)
             self.count += 1
             time.sleep(0.1)
 
@@ -27,7 +29,7 @@ def test_sentinel_stop():
             self.input_streams["in"] = InputStream(input_addr)
 
         def process(self):
-            result = self.input_streams["in"].recv()
+            result, sync = self.input_streams["in"].recv()
             if result is None:
                 self.stop()
                 return

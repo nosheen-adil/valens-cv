@@ -1,7 +1,8 @@
+import valens as va
 from valens import constants
 from valens.node import Node
-from valens import pose
-from valens.stream import InputStream, OutputStream
+import valens.pose
+from valens.stream import InputStream, OutputStream, gen_addr_ipc
 
 import cv2
 import json
@@ -14,7 +15,7 @@ import trt_pose.coco
 from trt_pose.parse_objects import ParseObjects
 
 class PoseFilter(Node):
-    def __init__(self, frame_address, pose_address, model_path=constants.POSE_MODEL_TRT_WEIGHTS, pose_path=constants.POSE_JSON):
+    def __init__(self, frame_address=gen_addr_ipc("frame"), pose_address=gen_addr_ipc("pose"), model_path=constants.POSE_MODEL_TRT_WEIGHTS, pose_path=constants.POSE_JSON):
         super().__init__("PoseFilter")
         self.input_streams["frame"] = InputStream(frame_address)
         self.output_streams["pose"] = OutputStream(pose_address)
@@ -38,7 +39,7 @@ class PoseFilter(Node):
         self.std = torch.Tensor([0.229, 0.224, 0.225]).cuda()
 
     def process(self):
-        frame = self.input_streams["frame"].recv()
+        frame, sync = self.input_streams["frame"].recv()
         if frame is None:
             self.stop()
             return
@@ -47,9 +48,9 @@ class PoseFilter(Node):
         cmap, paf = self.model_trt(data)
         cmap, paf = cmap.detach().cpu(), paf.detach().cpu()
         counts, objects, peaks = self.parse_objects(cmap, paf)
-        p = pose.nn_to_numpy(counts, objects, peaks, prev=self.prev)
-        self.prev = p.copy()
-        self.output_streams["pose"].send(p)
+        pose = va.pose.nn_to_numpy(counts, objects, peaks, prev=self.prev)
+        self.prev = pose.copy()
+        self.output_streams["pose"].send(pose, sync)
         
     def preprocess(self, frame):
         global device

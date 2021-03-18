@@ -36,9 +36,9 @@ if __name__ == '__main__':
                     frame_address=frame_address,
                     pose_address=pose_address),
                 PoseSink(
-                    pose_address=pose_address,
                     total_frames=total_frames(input_url),
-                    filename=output_filename)]
+                    filename=output_filename,
+                    pose_address=pose_address)]
 
 
     for p in processes: p.start()

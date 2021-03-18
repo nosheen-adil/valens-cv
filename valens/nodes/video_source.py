@@ -1,16 +1,22 @@
 from valens import constants
 from valens.node import Node
-from valens.stream import OutputStream
+from valens.stream import OutputStream, gen_set_id, gen_sync_metadata, gen_addr_ipc
+from valens.exercise import ExerciseType
 
 import cv2
 
 class VideoSource(Node):
-    def __init__(self, frame_address, device_url=0, num_outputs=1, resize=True, max_fps=10):
+    def __init__(self, user_id='user', exercise_type='exercise', set_id=gen_set_id(64), frame_address=gen_addr_ipc("frame"), device_url=0, is_live=False, num_outputs=1, resize=True, max_fps=10):
         super().__init__("VideoSource")
+        
+        self.user_id = user_id
+        self.exercise = str(ExerciseType(exercise_type))
+        self.set_id = set_id
         self.output_streams["frame"] = OutputStream(frame_address, num_outputs=num_outputs)
         
         self.capture = None
         self.device_url = device_url
+        self.is_live = is_live
         self.resize = resize
 
         self.set_max_fps(max_fps)
@@ -34,9 +40,11 @@ class VideoSource(Node):
         if self.resize:
             frame = cv2.resize(frame, dsize=(constants.POSE_MODEL_WIDTH, constants.POSE_MODEL_HEIGHT))
         
-        self.output_streams["frame"].send(frame)
+        sync = gen_sync_metadata(self.user_id, self.exercise, self.set_id)
+        self.output_streams["frame"].send(frame, sync)
         
-        for _ in range(self.diff_frames):
-            self.t += 1
-            _, _, = self.capture.read()
+        if not self.is_live:
+            for _ in range(self.diff_frames):
+                self.t += 1
+                _, _, = self.capture.read()
             

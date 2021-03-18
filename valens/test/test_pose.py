@@ -112,7 +112,7 @@ def test_pose_h5_sink():
 
     pose_addr = gen_addr_ipc("pose")
     pose_stream = OutputStream(pose_addr)
-    sink = PoseSink(pose_addr, total_frames=1, filename=actual_filename)
+    sink = PoseSink(total_frames=1, filename=actual_filename, pose_address=pose_addr)
     sink.start()
 
     pose_stream.start()

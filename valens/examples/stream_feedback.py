@@ -69,12 +69,15 @@ if __name__ == '__main__':
     if args.overlay:
         processes = [
                     VideoSource(
-                        gen_addr_ipc('frame'),
+                        user_id="nosheen123",
+                        exercise_type=exercise_type,
+                        frame_address=gen_addr_ipc('frame'),
                         device_url=args.recordings_dir + '/' + args.input + '.mp4',
                         max_fps=int(args.fps)),
                     PoseSource(
-                        pose_address=pose_address,
+                        user_id="nosheen123",
                         name=args.input,
+                        pose_address=pose_address,
                         input_dir=args.sequences_dir,
                         original_fps=get_capture_fps(args.recordings_dir + '/' + args.input + '.mp4'),
                         max_fps=int(args.fps)),
@@ -85,8 +88,9 @@ if __name__ == '__main__':
                     video_sink]
     else:
         processes = [PoseSource(
-                        pose_address=pose_address,
+                        user_id="nosheen123",
                         name=args.input,
+                        pose_address=pose_address,
                         input_dir=args.sequences_dir),
                     FeedbackFilter(
                         pose_address=pose_address,

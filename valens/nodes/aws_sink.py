@@ -108,7 +108,7 @@ class AwsSink(Node):
         print("Subscribed with {}".format(str(subscribe_result['qos'])))
 
     def process(self):
-        feedback = self.input_streams['feedback'].recv()
+        feedback, sync = self.input_streams['feedback'].recv()
         if feedback is None:
             self.stop()
             return
@@ -116,10 +116,10 @@ class AwsSink(Node):
         if 'feedback' not in feedback:
             return
 
-        feedback['user_id'] = 'nosheen'
-        feedback['set_id'] = 'test'
-        feedback['exercise'] = 'bodyweight-squat'
-        feedback['timestamp'] = round(time.time() * 1000)
+        feedback['user_id'] = sync['user_id']
+        feedback['set_id'] = sync['set_id']
+        feedback['exercise'] = sync['exercise']
+        feedback['timestamp'] = sync['timestamp']
         # print(feedback)
 
         print("Publishing message to topic '{}'".format(self.topic))

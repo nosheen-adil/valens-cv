@@ -11,6 +11,15 @@ class ExerciseType(Enum):
     BC = "BC"
     PU = "PU"
 
+    def __str__(self):
+        if self is ExerciseType.BS:
+            return "bodyweight-squat"
+        elif self is ExerciseType.BC:
+            return "bicep-curl"
+        elif self is ExerciseType.PU:
+            return "push-up"
+        assert False
+
 class Side(Enum):
     RIGHT = 0
     LEFT = 1

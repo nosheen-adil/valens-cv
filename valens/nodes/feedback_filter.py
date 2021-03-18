@@ -16,7 +16,7 @@ class FeedbackFilter(Node):
         self.exercise = exercise
 
     def process(self):
-        pose = self.input_streams['pose'].recv()
+        pose, sync = self.input_streams['pose'].recv()
         if pose is None:
             self.stop()
             return
@@ -24,4 +24,4 @@ class FeedbackFilter(Node):
         self.exercise.fit(pose)
         feedback = self.exercise.predict()
         if feedback is not None:
-            self.output_streams['feedback'].send(feedback)
+            self.output_streams['feedback'].send(feedback, sync)

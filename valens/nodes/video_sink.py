@@ -31,16 +31,16 @@ class VideoSink(Node):
 
     def process(self):
         if 'frame' in self.input_streams:
-            frame = self.input_streams['frame'].recv()
+            frame, _ = self.input_streams['frame'].recv()
         
             if frame is None:
                 if 'pose' in self.input_streams:
-                    pose = self.input_streams['pose'].recv()
+                    pose, _ = self.input_streams['pose'].recv()
                     assert(pose is None)
                     self.stop()
                     return
                 if 'feedback' in self.input_streams:
-                    feedback = self.input_streams['feedback'].recv()
+                    feedback, _ = self.input_streams['feedback'].recv()
                     assert(feedback is None)
                     self.stop()
                     return
@@ -48,14 +48,14 @@ class VideoSink(Node):
             frame = np.zeros((self.width, self.height, 3), dtype=np.uint8)
 
         if 'pose' in self.input_streams:
-            pose = self.input_streams['pose'].recv()
+            pose, _ = self.input_streams['pose'].recv()
             if pose is None:
                 self.stop()
                 return
             va.pose.draw_on_image(pose, frame, self.right_topology)
         
         elif 'feedback' in self.input_streams:
-            feedback = self.input_streams['feedback'].recv()
+            feedback, _ = self.input_streams['feedback'].recv()
             if feedback is None:
                 self.stop()
                 return
