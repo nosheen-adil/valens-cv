@@ -75,14 +75,14 @@ def scale(feedback, width=va.constants.POSE_MODEL_WIDTH, height=va.constants.POS
         for keypoint in result['feedback'].keys():
             label = result['feedback'][keypoint]['correct']
             if label is False:
-                # if math.isnan(result['feedback'][keypoint]['x']):
-                #     result['feedback'][keypoint]['x'] = -1
-                # else:
-                result['feedback'][keypoint]['x'] = round(result['feedback'][keypoint]['x'] * width)
-                # if math.isnan(result['feedback'][keypoint]['y']):
-                #     result['feedback'][keypoint]['y'] = -1
-                # else:
-                result['feedback'][keypoint]['y'] = round(result['feedback'][keypoint]['y'] * height)
+                if math.isnan(result['feedback'][keypoint]['x']):
+                    result['feedback'][keypoint]['x'] = -1
+                else:
+                    result['feedback'][keypoint]['x'] = round(result['feedback'][keypoint]['x'] * width)
+                if math.isnan(result['feedback'][keypoint]['y']):
+                    result['feedback'][keypoint]['y'] = -1
+                else:
+                    result['feedback'][keypoint]['y'] = round(result['feedback'][keypoint]['y'] * height)
 
     return result
 
