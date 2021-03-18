@@ -16,7 +16,7 @@ class Side(Enum):
     LEFT = 1
 
 class Exercise(ABC):
-    def __init__(self, exercise_type, right_keypoints, left_keypoints, topology, window_size=2):
+    def __init__(self, exercise_type, right_keypoints, left_keypoints, topology, window_size=5):
         self.type = exercise_type
         self.left_keypoints = left_keypoints
         self.right_keypoints = right_keypoints
@@ -334,11 +334,12 @@ class PushUp(Exercise):
     def started(self, angles):
         if self._initial_arm_link_lengths is None:
             initial_pose = self.pose.copy()
-            L = np.linalg.norm(initial_pose[4, :] - initial_pose[6, :])
-            shoulder_elbow = self._shoulder_elbow_arm_ratio * L
-            elbow_wrist = self._shoulder_elbow_arm_ratio * L
-            self._initial_arm_link_lengths = (shoulder_elbow, elbow_wrist)
-            print('got initial!', shoulder_elbow, elbow_wrist)
+            if (not np.isnan(initial_pose[4, :]).any() and not np.isnan(initial_pose[6, :]).any()):
+                L = np.linalg.norm(initial_pose[4, :] - initial_pose[6, :])
+                shoulder_elbow = self._shoulder_elbow_arm_ratio * L
+                elbow_wrist = self._shoulder_elbow_arm_ratio * L
+                self._initial_arm_link_lengths = (shoulder_elbow, elbow_wrist)
+                print('got initial!', shoulder_elbow, elbow_wrist)
         self._shoulder_wrist_correct = True
         self._shoulder_wrist_frames_from_start_curr = 0
         return angles[0] < self._space_neck_limit
