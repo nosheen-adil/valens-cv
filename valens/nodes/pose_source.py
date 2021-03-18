@@ -14,7 +14,7 @@ class PoseSource(Node):
         self.t = 0
 
         self.set_max_fps(max_fps)
-        self.diff_frames = round(original_fps / max_fps)
+        self.diff_frames = round(original_fps / max_fps) - 1
         print(self.name, 'diff frames:', self.diff_frames)
 
     def prepare(self):

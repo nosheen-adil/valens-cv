@@ -20,7 +20,7 @@ class VideoSource(Node):
     def prepare(self):
         self.capture = cv2.VideoCapture(self.device_url)
         original_fps = int(self.capture.get(cv2.CAP_PROP_FPS))
-        self.diff_frames = round(original_fps / self.max_fps)
+        self.diff_frames = round(original_fps / self.max_fps) - 1
         print(self.name, 'diff frames:', self.diff_frames, original_fps)
 
     def process(self):
