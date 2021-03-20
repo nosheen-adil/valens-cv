@@ -127,5 +127,4 @@ class AwsSink(Node):
             topic=self.topic,
             payload=json.dumps(feedback),
             qos=mqtt.QoS.AT_LEAST_ONCE)
-        print(ret)
          

@@ -12,6 +12,11 @@ import argparse
 import time
 import torch.multiprocessing
 from torch.multiprocessing import set_start_method
+import cv2
+
+def get_capture_fps(name):
+    c = cv2.VideoCapture(name)
+    return int(c.get(cv2.CAP_PROP_FPS))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Generate a three stage pipeline to stream pose sequences to the local display')
@@ -34,10 +39,12 @@ if __name__ == '__main__':
     exercise = va.exercise.load(exercise_type)
 
     processes = [PoseSource(
-                    user_id='nosheen123',
+                    user_id='demo_0',
                     name=args.input,
                     pose_address=pose_address,
-                    input_dir=args.sequences_dir),
+                    input_dir=args.sequences_dir,
+                    original_fps=get_capture_fps(args.recordings_dir + '/' + args.input + '.mp4'),
+                    max_fps=int(args.fps)),
                 FeedbackFilter(
                     pose_address=pose_address,
                     feedback_address=feedback_address,

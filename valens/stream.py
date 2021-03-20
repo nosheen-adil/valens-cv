@@ -31,7 +31,9 @@ def gen_addr_tcp(port=None):
 def gen_set_id(size=5):
     return b64encode(os.urandom(size)).decode('utf-8')
 
-def gen_sync_metadata(user_id, exercise, set_id, timestamp=int(time.time() * 1000)):
+def gen_sync_metadata(user_id, exercise, set_id, timestamp=None):
+    if timestamp is None:
+        timestamp = int(time.time() * 1000)
     return {
         "user_id" : user_id,
         "exercise" : exercise,

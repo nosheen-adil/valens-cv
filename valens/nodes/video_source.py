@@ -6,7 +6,7 @@ from valens.exercise import ExerciseType
 import cv2
 
 class VideoSource(Node):
-    def __init__(self, user_id='user', exercise_type='exercise', set_id=gen_set_id(64), frame_address=gen_addr_ipc("frame"), device_url=0, is_live=False, num_outputs=1, resize=True, max_fps=10):
+    def __init__(self, user_id='user', exercise_type='exercise', set_id=gen_set_id(16), frame_address=gen_addr_ipc("frame"), device_url=0, is_live=False, num_outputs=1, resize=True, max_fps=10):
         super().__init__("VideoSource")
         
         self.user_id = user_id

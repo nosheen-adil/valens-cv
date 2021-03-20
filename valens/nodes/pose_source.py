@@ -6,7 +6,7 @@ from valens.exercise import ExerciseType
 import h5py
 
 class PoseSource(Node):
-    def __init__(self, name, user_id='user', set_id=gen_set_id(64), pose_address=gen_addr_ipc("pose"), original_fps=30, max_fps=10, input_dir=constants.DATA_DIR + '/sequences'):
+    def __init__(self, name, user_id='user', set_id=gen_set_id(16), pose_address=gen_addr_ipc("pose"), original_fps=30, max_fps=10, input_dir=constants.DATA_DIR + '/sequences'):
         super().__init__("PoseSource")
 
         self.user_id = user_id
