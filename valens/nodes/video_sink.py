@@ -14,13 +14,14 @@ import trt_pose.coco
 import numpy as np
 
 class VideoSink(Node):
-    def __init__(self, frame_address=None, pose_address=None, feedback_address=None, right_topology=[], left_topology=[], width=constants.POSE_MODEL_WIDTH, height=constants.POSE_MODEL_HEIGHT, node_name='VideoSink'):
+    def __init__(self, frame_address=None, pose_address=None, feedback_address=None, width=constants.POSE_MODEL_WIDTH, height=constants.POSE_MODEL_HEIGHT, node_name='VideoSink'):
         super().__init__(node_name)
 
         self.width = width
         self.height = height
-        self.right_topology = right_topology
-        self.left_topology = left_topology
+        self.right_topology = None
+        self.left_topology = None
+        
         if frame_address is not None:
             self.input_streams['frame'] = InputStream(frame_address)
         if pose_address is not None:
@@ -28,6 +29,15 @@ class VideoSink(Node):
             self.input_streams['pose'] = InputStream(pose_address)
         elif feedback_address is not None:
             self.input_streams['feedback'] = InputStream(feedback_address)
+
+    def reset(self):
+        self.right_topology = None
+        self.left_topology = None
+
+    def configure(self, request):
+        exercise = va.exercise.load(request['exercise'])
+        self.right_topology = exercise.topology(side=va.exercise.Side.RIGHT)
+        self.left_topology = exercise.topology(side=va.exercise.Side.LEFT)
 
     def process(self):
         if 'frame' in self.input_streams:
@@ -37,12 +47,12 @@ class VideoSink(Node):
                 if 'pose' in self.input_streams:
                     pose, _ = self.input_streams['pose'].recv()
                     assert(pose is None)
-                    self.stop()
+                    # self.stop()
                     return
                 if 'feedback' in self.input_streams:
                     feedback, _ = self.input_streams['feedback'].recv()
                     assert(feedback is None)
-                    self.stop()
+                    # self.stop()
                     return
         else:
             frame = np.zeros((self.width, self.height, 3), dtype=np.uint8)
@@ -50,14 +60,14 @@ class VideoSink(Node):
         if 'pose' in self.input_streams:
             pose, _ = self.input_streams['pose'].recv()
             if pose is None:
-                self.stop()
+                # self.stop()
                 return
             va.pose.draw_on_image(pose, frame, self.right_topology)
         
         elif 'feedback' in self.input_streams:
             feedback, _ = self.input_streams['feedback'].recv()
             if feedback is None:
-                self.stop()
+                # self.stop()
                 return
             if all([self.right_topology[i][0] in feedback['pose'] for i in range(len(self.right_topology))]):
                 va.feedback.draw_on_image(feedback, frame, self.right_topology)
@@ -71,28 +81,35 @@ class VideoSink(Node):
         pass
 
 class LocalDisplaySink(VideoSink):
-    def __init__(self, frame_address=None, pose_address=None, feedback_address=None, right_topology=[], left_topology=[], width=constants.POSE_MODEL_WIDTH, height=constants.POSE_MODEL_HEIGHT):
-        super().__init__(frame_address=frame_address, pose_address=pose_address, feedback_address=feedback_address, right_topology=right_topology, left_topology=left_topology, width=width, height=height, node_name='LocalDisplaySink')
+    def __init__(self, frame_address=None, pose_address=None, feedback_address=None):
+        super().__init__(frame_address=frame_address, pose_address=pose_address, feedback_address=feedback_address, node_name='LocalDisplaySink')
 
     def write(self, frame):
         cv2.imshow('frame', frame)
         cv2.waitKey(1)
 
 class Mp4FileSink(VideoSink):
-    def __init__(self, frame_address=None, pose_address=None, feedback_address=None, right_topology=[], left_topology=[], width=constants.POSE_MODEL_WIDTH, height=constants.POSE_MODEL_HEIGHT, name='video', output_dir=constants.DATA_DIR + '/outputs', fps=30):
-        super().__init__(frame_address=frame_address, pose_address=pose_address, feedback_address=feedback_address, right_topology=right_topology, left_topology=left_topology, width=width, height=height, node_name='Mp4FileSink')
-        self.filename = output_dir + '/' + name + '.mp4'
-        self.writer = None
+    def __init__(self, frame_address=None, pose_address=None, feedback_address=None, output_dir=constants.DATA_DIR + '/outputs', fps=10):
+        super().__init__(frame_address=frame_address, pose_address=pose_address, feedback_address=feedback_address, node_name='Mp4FileSink')
+        self.output_dir = output_dir
         self.fps = fps
+        self.filename = None
+        self.writer = None
 
-    def prepare(self):
+    def reset(self):
+        print(self.name + ': closing writer to ', self.filename)
+        self.writer.release()
+
+        self.filename = None
+        self.writer = None
+        super().reset()
+
+    def configure(self, request):
+        super().configure(request)
+
+        self.filename = self.output_dir + '/' + request['name'] + '.mp4'
         fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
         self.writer = cv2.VideoWriter(self.filename, fourcc, self.fps, (self.width, self.height))
 
     def write(self, frame):
         self.writer.write(frame)
-
-    def stop(self):
-        print(self.name + ': closing writer to ', self.filename)
-        self.writer.release()
-        super().stop()

@@ -110,7 +110,7 @@ class AwsSink(Node):
     def process(self):
         feedback, sync = self.input_streams['feedback'].recv()
         if feedback is None:
-            self.stop()
+            # self.stop()
             return
 
         if 'feedback' not in feedback:

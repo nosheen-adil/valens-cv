@@ -21,6 +21,10 @@ def test_stream_gen_addr_tcp():
     address = stream.gen_addr_tcp(5555)
     assert address == "tcp://5555"
 
+def test_stream_gen_addr_tcp_bind():
+    address = stream.gen_addr_tcp(5555, bind=True)
+    assert address == "tcp://*:5555"
+
 def test_stream_send_recv_single():
     address = stream.gen_addr_ipc("test")
     

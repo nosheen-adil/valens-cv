@@ -22,26 +22,33 @@ class PoseFilter(Node):
 
         self.model_path = model_path
         self.pose_path = pose_path
+        self.model_trt = None
+        self.mean = None
+        self.std = None
         self.prev = None
 
-    def prepare(self):
-        with open(self.pose_path, 'r') as f:
-            human_pose = json.load(f)
-        topology = trt_pose.coco.coco_category_to_topology(human_pose)
-        self.parse_objects = ParseObjects(topology)
+    def reset(self):
+        self.prev = None
 
-        self.model_trt = TRTModule()
-        print(self.name + ": Loading model")
-        self.model_trt.load_state_dict(torch.load(self.model_path))
-        print(self.name + ": Loaded optimized model")
+    def configure(self, request):
+        if self.model_trt is None:
+            with open(self.pose_path, 'r') as f:
+                human_pose = json.load(f)
+            topology = trt_pose.coco.coco_category_to_topology(human_pose)
+            self.parse_objects = ParseObjects(topology)
 
-        self.mean = torch.Tensor([0.485, 0.456, 0.406]).cuda()
-        self.std = torch.Tensor([0.229, 0.224, 0.225]).cuda()
+            self.model_trt = TRTModule()
+            print(self.name + ": Loading model")
+            self.model_trt.load_state_dict(torch.load(self.model_path))
+            print(self.name + ": Loaded optimized model")
+
+            self.mean = torch.Tensor([0.485, 0.456, 0.406]).cuda()
+            self.std = torch.Tensor([0.229, 0.224, 0.225]).cuda()
 
     def process(self):
         frame, sync = self.input_streams["frame"].recv()
         if frame is None:
-            self.stop()
+            # self.stop()
             return
 
         data = self.preprocess(frame)

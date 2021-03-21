@@ -21,12 +21,15 @@ def gen_addr_inproc(endpoint):
 def gen_addr_ipc(endpoint):
     return gen_addr(Protocol.IPC, "/tmp/" + endpoint)
 
-def gen_addr_tcp(port=None):
+def gen_addr_tcp(port=None, bind=False):
     if port is None:
         return gen_addr(Protocol.TCP, "*")
     
     assert (type(port) == int)
-    return gen_addr(Protocol.TCP, str(port))
+    if bind:
+        return gen_addr(Protocol.TCP, "*:" + str(port))
+    
+    return gen_addr(Protocol.TCP, "127.0.0.1:" + str(port))
 
 def gen_set_id(size=5):
     return b64encode(os.urandom(size)).decode('utf-8')
