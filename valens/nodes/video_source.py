@@ -9,7 +9,7 @@ class VideoSource(Node):
     def __init__(self, frame_address=gen_addr_ipc("frame"), is_live=False, num_outputs=1, resize=True, max_fps=10):
         super().__init__("VideoSource")
         
-        self.output_streams["frame"] = OutputStream(frame_address, num_outputs=num_outputs)
+        # self.output_streams["frame"] = OutputStream(frame_address, num_outputs=num_outputs)
         self.is_live = is_live
         self.resize = resize
         self.set_max_fps(max_fps)
@@ -32,7 +32,7 @@ class VideoSource(Node):
     def configure(self, request):
         self.user_id = request['user_id']
         self.exercise = str(ExerciseType(request['exercise']))
-        self.set_id = gen_set_id(16)
+        self.set_id = request['set_id']
 
         self.capture = cv2.VideoCapture(request['capture'])
         original_fps = int(self.capture.get(cv2.CAP_PROP_FPS))
@@ -45,6 +45,7 @@ class VideoSource(Node):
         if not ret:
             self.capture.release()
             # self.stop()
+            print('Finished video')
             self.bus.send("finished")
             return
 
@@ -52,7 +53,9 @@ class VideoSource(Node):
             frame = cv2.resize(frame, dsize=(constants.POSE_MODEL_WIDTH, constants.POSE_MODEL_HEIGHT))
         
         sync = gen_sync_metadata(self.user_id, self.exercise, self.set_id)
-        self.output_streams["frame"].send(frame, sync)
+        sync['id'] = self.iterations
+        # self.output_streams["frame"].send(frame, sync)
+        self.bus.send("frame", frame, sync)
         
         if not self.is_live:
             for _ in range(self.diff_frames):

@@ -45,9 +45,9 @@ class Client:
             print('Client: error with start request')
 
     def wait_finish(self):
-        print('Cleint: waiting for request')
+        # print('Cleint: waiting for request')
         request = self.finish_socket.recv_json()
-        print('Client: received request', request)
+        # print('Client: received request', request)
         response = _check_request(request, keys=self.request.keys())
         self.finish_socket.send_json(response)
         if response['success'] is True:
@@ -106,7 +106,7 @@ class Pipeline:
 
         while True:
             request = self.signal_socket.recv_json()
-            print('Received request:', request)
+            # print('Received request:', request)
             response = _check_request(request, keys=['signal', 'user_id', 'exercise', 'num_reps'])
             self.signal_socket.send_json(response)
             if response['success'] is False:
@@ -124,9 +124,8 @@ class Pipeline:
             finished = self.bus.recv("finished", timeout=None)
             assert finished is True
 
-            print('Finished set!', finished)
+            print('Pipeline: finished set!')
             request['finished'] = True
-            print('Pipeline: sending stop request')
             self.finish_socket.send_json(request)
             print('Pipeline: recevied stop response')
             

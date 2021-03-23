@@ -56,9 +56,9 @@ def on_message_received(topic, payload, **kwargs):
     #     received_all_event.set()
 
 class AwsSink(Node):
-    def __init__(self, endpoint=constants.AWS_ENDPOINT_JSON, cert=constants.AWS_CERT_PATH, key=constants.AWS_KEY_PATH, root_ca=constants.AWS_ROOT_CA_PATH, client_id='test-'+ str(uuid4()), topic='topic_1', feedback_address=gen_addr_ipc('feedback')):
-        super().__init__('AwsSink')
-        self.input_streams['feedback'] = InputStream(feedback_address)
+    def __init__(self, endpoint=constants.AWS_ENDPOINT_JSON, cert=constants.AWS_CERT_PATH, key=constants.AWS_KEY_PATH, root_ca=constants.AWS_ROOT_CA_PATH, client_id='test-'+ str(uuid4()), topic='topic_1', publish=True):
+        super().__init__('AwsSink', topics=['feedback', 'feedback_finished'])
+        # self.input_streams['feedback'] = InputStream(feedback_address)
 
         with open(endpoint, 'r') as f:
             j = json.load(f)
@@ -68,8 +68,10 @@ class AwsSink(Node):
         self.root_ca = root_ca
         self.client_id = client_id
         self.topic = topic
+        self.publish = publish
+        self.set_id = None
 
-    def prepare(self):
+    def load(self):
         self.received_count = 0
         self.received_all_event = threading.Event()
 
@@ -107,24 +109,40 @@ class AwsSink(Node):
         subscribe_result = subscribe_future.result()
         print("Subscribed with {}".format(str(subscribe_result['qos'])))
 
-    def process(self):
-        feedback, sync = self.input_streams['feedback'].recv()
-        if feedback is None:
-            # self.stop()
-            return
+    def reset(self):
+        self.set_id = None
 
-        if 'feedback' not in feedback:
+    def configure(self, request):
+        self.set_id = request['set_id']
+
+    def process(self):
+        data = self.bus.recv('feedback', timeout=self.timeout if self.iterations > 0 else None)
+        if data is False:
+            feedback_finished = self.bus.recv('feedback_finished', timeout=self.timeout)
+            if feedback_finished is False:
+                return
+            else:
+                print(self.name + ': detected feedback finished')
+                assert feedback_finished is True
+                self.bus.send('finished')
+                return
+        sync, feedback = data
+
+        if 'feedback' not in feedback or sync['set_id'] != self.set_id:
             return
 
         feedback['user_id'] = sync['user_id']
         feedback['set_id'] = sync['set_id']
         feedback['exercise'] = sync['exercise']
         feedback['timestamp'] = sync['timestamp']
-        # print(feedback)
 
-        print("Publishing message to topic '{}'".format(self.topic))
-        ret = self.mqtt_connection.publish(
-            topic=self.topic,
-            payload=json.dumps(feedback),
-            qos=mqtt.QoS.AT_LEAST_ONCE)
+        if self.publish:
+            print("Publishing message to topic '{}'".format(self.topic))
+            ret = self.mqtt_connection.publish(
+                topic=self.topic,
+                payload=json.dumps(feedback),
+                qos=mqtt.QoS.AT_LEAST_ONCE)
+        else:
+            print(feedback)
+
          

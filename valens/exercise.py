@@ -25,7 +25,7 @@ class Side(Enum):
     LEFT = 1
 
 class Exercise(ABC):
-    def __init__(self, exercise_type, right_keypoints, left_keypoints, topology, window_size=5):
+    def __init__(self, exercise_type, right_keypoints, left_keypoints, topology, window_size=3):
         self.type = exercise_type
         self.left_keypoints = left_keypoints
         self.right_keypoints = right_keypoints
@@ -42,6 +42,7 @@ class Exercise(ABC):
         self.pose = None
 
         self.t = 0
+        self.reps = 0
 
     @abstractmethod
     def started(self, angles):
@@ -116,6 +117,7 @@ class Exercise(ABC):
                 print('finished', self.t)
                 self.in_rep = False
                 self.rep = []
+                self.reps += 1
             
         elif self.started(angles):
             print('started:', self.t)

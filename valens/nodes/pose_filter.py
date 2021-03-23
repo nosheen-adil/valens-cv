@@ -16,9 +16,9 @@ from trt_pose.parse_objects import ParseObjects
 
 class PoseFilter(Node):
     def __init__(self, frame_address=gen_addr_ipc("frame"), pose_address=gen_addr_ipc("pose"), model_path=constants.POSE_MODEL_TRT_WEIGHTS, pose_path=constants.POSE_JSON):
-        super().__init__("PoseFilter")
-        self.input_streams["frame"] = InputStream(frame_address)
-        self.output_streams["pose"] = OutputStream(pose_address)
+        super().__init__("PoseFilter", topics=['frame'])
+        # self.input_streams["frame"] = InputStream(frame_address)
+        # self.output_streams["pose"] = OutputStream(pose_address)
 
         self.model_path = model_path
         self.pose_path = pose_path
@@ -30,26 +30,32 @@ class PoseFilter(Node):
     def reset(self):
         self.prev = None
 
-    def configure(self, request):
-        if self.model_trt is None:
-            with open(self.pose_path, 'r') as f:
-                human_pose = json.load(f)
-            topology = trt_pose.coco.coco_category_to_topology(human_pose)
-            self.parse_objects = ParseObjects(topology)
+    def load(self):
+        with open(self.pose_path, 'r') as f:
+            human_pose = json.load(f)
+        topology = trt_pose.coco.coco_category_to_topology(human_pose)
+        self.parse_objects = ParseObjects(topology)
 
-            self.model_trt = TRTModule()
-            print(self.name + ": Loading model")
-            self.model_trt.load_state_dict(torch.load(self.model_path))
-            print(self.name + ": Loaded optimized model")
+        self.model_trt = TRTModule()
+        print(self.name + ": Loading model")
+        self.model_trt.load_state_dict(torch.load(self.model_path))
+        print(self.name + ": Loaded optimized model")
 
-            self.mean = torch.Tensor([0.485, 0.456, 0.406]).cuda()
-            self.std = torch.Tensor([0.229, 0.224, 0.225]).cuda()
+        self.mean = torch.Tensor([0.485, 0.456, 0.406]).cuda()
+        self.std = torch.Tensor([0.229, 0.224, 0.225]).cuda()
+
+        data = torch.zeros((1, 3, constants.POSE_MODEL_WIDTH, constants.POSE_MODEL_HEIGHT)).cuda()
+        self.model_trt(data)
 
     def process(self):
-        frame, sync = self.input_streams["frame"].recv()
-        if frame is None:
-            # self.stop()
+        data = self.bus.recv('frame', timeout=self.timeout)
+        if data is False:
             return
+        sync, frame = data
+        # frame, sync = self.input_streams["frame"].recv()
+        # if frame is None:
+        #     # self.stop()
+        #     return
 
         data = self.preprocess(frame)
         cmap, paf = self.model_trt(data)
@@ -57,7 +63,8 @@ class PoseFilter(Node):
         counts, objects, peaks = self.parse_objects(cmap, paf)
         pose = va.pose.nn_to_numpy(counts, objects, peaks, prev=self.prev)
         self.prev = pose.copy()
-        self.output_streams["pose"].send(pose, sync)
+        # self.output_streams["pose"].send(pose, sync)
+        self.bus.send('pose', pose, sync)
         
     def preprocess(self, frame):
         global device

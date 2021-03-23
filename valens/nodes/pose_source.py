@@ -9,7 +9,7 @@ class PoseSource(Node):
     def __init__(self, pose_address=gen_addr_ipc("pose"), max_fps=10, input_dir=constants.DATA_DIR + '/sequences'):
         super().__init__("PoseSource")
 
-        self.output_streams["pose"] = OutputStream(pose_address)
+        # self.output_streams["pose"] = OutputStream(pose_address)
         self.input_dir = input_dir
         self.set_max_fps(max_fps)
 
@@ -31,7 +31,7 @@ class PoseSource(Node):
     def configure(self, request):
         self.user_id = request['user_id']
         self.exercise = str(ExerciseType(request['exercise']))
-        self.set_id = gen_set_id(16)
+        self.set_id = request['set_id']
         self.diff_frames = round(int(request['original_fps']) / self.max_fps) - 1
         
         filename = self.input_dir + '/' + request['name'] + '.h5'
@@ -46,7 +46,10 @@ class PoseSource(Node):
 
         pose = self.seq[:, :, self.t].copy('C')
         sync = gen_sync_metadata(self.user_id, self.exercise, self.set_id)
-        self.output_streams["pose"].send(pose, sync)
+        sync['id'] = self.iterations
+        # self.output_streams["pose"].send(pose, sync)
+        self.bus.send("pose", pose, sync)
+        # print('sent pose')
         self.t += 1
 
         for _ in range(self.diff_frames):
