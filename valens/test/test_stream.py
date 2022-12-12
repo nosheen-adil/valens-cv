@@ -19,7 +19,7 @@ def test_stream_gen_addr_tcp_wildcard():
 
 def test_stream_gen_addr_tcp():
     address = stream.gen_addr_tcp(5555)
-    assert address == "tcp://5555"
+    assert address == "tcp://localhost:5555"
 
 def test_stream_gen_addr_tcp_bind():
     address = stream.gen_addr_tcp(5555, bind=True)
@@ -28,8 +28,8 @@ def test_stream_gen_addr_tcp_bind():
 def test_stream_send_recv_single():
     address = stream.gen_addr_ipc("test")
     
-    input_stream = stream.InputStream(address)
-    output_stream = stream.OutputStream(address)
+    input_stream = stream.InputStream(address, identity=b'A')
+    output_stream = stream.OutputStream(address, identities=[b'A'])
 
     def f_input(input_stream):
         input_stream.start()
@@ -56,36 +56,26 @@ def test_stream_send_recv_single():
 def test_stream_send_recv_multiple():
     address = stream.gen_addr_ipc("test")
     
-    input_stream = stream.InputStream(address)
-    output_stream = stream.OutputStream(address)
+    input_stream = stream.InputStream(address, identity=b'A')
+    output_stream = stream.OutputStream(address, identities=[b'A'])
 
     def f_input(input_stream):
         input_stream.start()
         
-        msg, sync = input_stream.recv()
-        assert msg["data"] == 1
-
-        msg, sync = input_stream.recv()
-        assert msg["data"] == 2
-
-        msg, sync = input_stream.recv()
-        assert msg["data"] == 3
+        for i in range(100):
+            msg, sync = input_stream.recv()
+            assert msg["data"] == i
         
     def f_output(output_stream):
         output_stream.start()
         set_id = stream.gen_set_id()
-        
-        msg = {"data" : 1}
-        sync = stream.gen_sync_metadata("user", "exercise", set_id)
-        output_stream.send(msg, sync)
 
-        msg["data"] = 2
-        sync = stream.gen_sync_metadata("user", "exercise", set_id)
-        output_stream.send(msg, sync)
+        msg = {}
+        for i in range(100):
+            msg["data"] = i
+            sync = stream.gen_sync_metadata("user", "exercise", set_id)
+            output_stream.send(msg, sync)
 
-        msg["data"] = 3
-        sync = stream.gen_sync_metadata("user", "exercise", set_id)
-        output_stream.send(msg, sync)
 
     p = [Process(target=f_input, args=(input_stream,)),
         Process(target=f_output, args=(output_stream,))]
@@ -96,23 +86,28 @@ def test_stream_send_recv_multiple():
 def test_stream_multiple_outputs():
     address = stream.gen_addr_ipc("test")
 
-    input_stream1 = stream.InputStream(address)
-    input_stream2 = stream.InputStream(address)
-    output_stream = stream.OutputStream(address, num_outputs=2)
+    input_stream1 = stream.InputStream(address, identity=b'A')
+    input_stream2 = stream.InputStream(address, identity=b'B')
+    output_stream = stream.OutputStream(address, identities=[b'A', b'B'])
 
     def f_input(input_stream):
         input_stream.start()
         
-        msg, sync = input_stream.recv()
-        assert msg["data"] == 1
+        for i in range(100):
+            msg, sync = input_stream.recv()
+            assert msg["data"] == i
 
     def f_output(output_stream):
         output_stream.start()
+        time.sleep(0.25)
         set_id = stream.gen_set_id()
         sync = stream.gen_sync_metadata("user", "exercise", set_id)
         
-        msg = {"data" : 1}
-        output_stream.send(msg, sync)
+        msg = {}
+        for i in range(100):
+            msg["data"] = i
+            sync = stream.gen_sync_metadata("user", "exercise", set_id)
+            output_stream.send(msg, sync)
 
     p = [Process(target=f_input, args=(input_stream1,)),
         Process(target=f_input, args=(input_stream2,)),
@@ -125,8 +120,8 @@ def test_stream_multiple_outputs():
 def test_stream_send_recv_ndarray():
     address = stream.gen_addr_ipc("test")
     
-    input_stream = stream.InputStream(address)
-    output_stream = stream.OutputStream(address)
+    input_stream = stream.InputStream(address, identity='input')
+    output_stream = stream.OutputStream(address, identities=['input'])
 
     def f_input(input_stream):
         input_stream.start()

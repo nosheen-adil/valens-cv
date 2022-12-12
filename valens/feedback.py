@@ -86,9 +86,9 @@ def scale(feedback, width=va.constants.POSE_MODEL_WIDTH, height=va.constants.POS
 
     return result
 
-def draw_on_image(feedback, frame, topology, user_colors={True : (0, 153, 0), False : (0, 0, 204), None : (255, 255, 255)}, feedback_color=(0, 153, 0)):
-    result = scale(feedback, frame.shape[0], frame.shape[1])
-
+def draw_on_image(feedback, frame, topology, user_colors={True : (0, 153, 0), False : (0, 0, 204), None : (255, 255, 255)}, feedback_color=(0, 153, 0), fps=0):
+    result = scale(feedback, frame.shape[1], frame.shape[0])
+    thickness = 2
     for keypoint in result['pose'].keys():
         x = result['pose'][keypoint]['x']
         y = result['pose'][keypoint]['y']
@@ -96,13 +96,13 @@ def draw_on_image(feedback, frame, topology, user_colors={True : (0, 153, 0), Fa
         if x >= 0 and y >= 0:
             if 'feedback' in feedback:
                 label = result['feedback'][keypoint]['correct']
-                cv2.circle(frame, (x, y), 3, user_colors[label], 2)
+                cv2.circle(frame, (x, y), 3, user_colors[label], thickness)
                 if label is False:
                     f_x = result['feedback'][keypoint]['x']
                     f_y = result['feedback'][keypoint]['y']
-                    cv2.circle(frame, (f_x, f_y), 3, feedback_color, 2)
+                    cv2.circle(frame, (f_x, f_y), 3, feedback_color, thickness)
             else:
-                cv2.circle(frame, (x, y), 3, user_colors[None], 2)
+                cv2.circle(frame, (x, y), 3, user_colors[None], thickness)
 
     for link in topology:
         keypoint1, keypoint2 = link
@@ -118,18 +118,18 @@ def draw_on_image(feedback, frame, topology, user_colors={True : (0, 153, 0), Fa
                 label2 = result['feedback'][keypoint2]['correct']
 
                 if label1 is True and label2 is True:
-                    cv2.line(frame, (x1, y1), (x2, y2), user_colors[True], 2)
+                    cv2.line(frame, (x1, y1), (x2, y2), user_colors[True], thickness)
                 else:
-                    cv2.line(frame, (x1, y1), (x2, y2), user_colors[False], 2)
+                    cv2.line(frame, (x1, y1), (x2, y2), user_colors[False], thickness)
                 
                     if label1 is True and label2 is False:
                         f_x2 = result['feedback'][keypoint2]['x']
                         f_y2 = result['feedback'][keypoint2]['y']
-                        cv2.line(frame, (x1, y1), (f_x2, f_y2), feedback_color, 2)
+                        cv2.line(frame, (x1, y1), (f_x2, f_y2), feedback_color, thickness)
                     elif label1 is False and label2 is True:
                         f_x1 = result['feedback'][keypoint1]['x']
                         f_y1 = result['feedback'][keypoint1]['y']
-                        cv2.line(frame, (f_x1, f_y1), (x2, y2), feedback_color, 2)
+                        cv2.line(frame, (f_x1, f_y1), (x2, y2), feedback_color, thickness)
                     else:
                         f_x2 = result['feedback'][keypoint2]['x']
                         f_y2 = result['feedback'][keypoint2]['y']
@@ -137,6 +137,17 @@ def draw_on_image(feedback, frame, topology, user_colors={True : (0, 153, 0), Fa
                         f_x1 = result['feedback'][keypoint1]['x']
                         f_y1 = result['feedback'][keypoint1]['y']
 
-                        cv2.line(frame, (f_x1, f_y1), (f_x2, f_y2), feedback_color, 2)
+                        cv2.line(frame, (f_x1, f_y1), (f_x2, f_y2), feedback_color, thickness)
             else:
-                cv2.line(frame, (x1, y1), (x2, y2), user_colors[None], 2)       
+                cv2.line(frame, (x1, y1), (x2, y2), user_colors[None], thickness)       
+    if fps > 0:
+        cv2.putText(
+            frame,
+            'Pipeline Performance: {0} FPS'.format(fps), 
+            (30, 30), 
+            cv2.FONT_HERSHEY_SIMPLEX, 
+            0.5,
+            (255, 255, 255),
+            2
+        )
+

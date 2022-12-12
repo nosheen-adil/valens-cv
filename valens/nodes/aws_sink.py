@@ -49,16 +49,17 @@ def on_resubscribe_complete(resubscribe_future):
 
 # Callback when the subscribed topic receives a message
 def on_message_received(topic, payload, **kwargs):
-    print("Received message from topic '{}': {}".format(topic, payload))
+    pass
+    # print("Received message from topic '{}': {}".format(topic, payload))
     # global received_count
     # received_count += 1
     # if received_count == args.count:
     #     received_all_event.set()
 
 class AwsSink(Node):
-    def __init__(self, endpoint=constants.AWS_ENDPOINT_JSON, cert=constants.AWS_CERT_PATH, key=constants.AWS_KEY_PATH, root_ca=constants.AWS_ROOT_CA_PATH, client_id='test-'+ str(uuid4()), topic='topic_1', publish=True):
-        super().__init__('AwsSink', topics=['feedback', 'feedback_finished'])
-        # self.input_streams['feedback'] = InputStream(feedback_address)
+    def __init__(self, endpoint=constants.AWS_ENDPOINT_JSON, cert=constants.AWS_CERT_PATH, key=constants.AWS_KEY_PATH, root_ca=constants.AWS_ROOT_CA_PATH, client_id='test-'+ str(uuid4()), topic='topic_1'):
+        super().__init__('AwsSink')
+        self.input_streams['feedback'] = InputStream(gen_addr_ipc('feedback'), identity=b'0')
 
         with open(endpoint, 'r') as f:
             j = json.load(f)
@@ -68,7 +69,7 @@ class AwsSink(Node):
         self.root_ca = root_ca
         self.client_id = client_id
         self.topic = topic
-        self.publish = publish
+        self.publish = False
         self.set_id = None
 
     def load(self):
@@ -111,24 +112,20 @@ class AwsSink(Node):
 
     def reset(self):
         self.set_id = None
+        self.publish = False
 
     def configure(self, request):
         self.set_id = request['set_id']
+        if 'publish' in request: 
+            self.publish = request['publish']
+        print(self.name + ': publish = ', self.publish)
 
     def process(self):
-        data = self.bus.recv('feedback', timeout=self.timeout if self.iterations > 0 else None)
-        if data is False:
-            feedback_finished = self.bus.recv('feedback_finished', timeout=self.timeout)
-            if feedback_finished is False:
-                return
-            else:
-                print(self.name + ': detected feedback finished')
-                assert feedback_finished is True
-                self.bus.send('finished')
-                return
-        sync, feedback = data
+        feedback, sync = self.input_streams['feedback'].recv()
+        if feedback is None:
+            return True
 
-        if 'feedback' not in feedback or sync['set_id'] != self.set_id:
+        if 'feedback' not in feedback:
             return
 
         feedback['user_id'] = sync['user_id']
@@ -142,7 +139,7 @@ class AwsSink(Node):
                 topic=self.topic,
                 payload=json.dumps(feedback),
                 qos=mqtt.QoS.AT_LEAST_ONCE)
-        else:
-            print(feedback)
+        # else:
+        #     print(feedback)
 
          

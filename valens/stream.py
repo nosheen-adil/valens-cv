@@ -5,6 +5,8 @@ import numpy as np
 import os
 import time
 import zmq
+import zmq.asyncio
+import json
 
 class Protocol(Enum):
     INPROC="inproc"
@@ -29,7 +31,7 @@ def gen_addr_tcp(port=None, bind=False):
     if bind:
         return gen_addr(Protocol.TCP, "*:" + str(port))
     
-    return gen_addr(Protocol.TCP, "127.0.0.1:" + str(port))
+    return gen_addr(Protocol.TCP, "localhost:" + str(port))
 
 def gen_set_id(size=5):
     return b64encode(os.urandom(size)).decode('utf-8')
@@ -55,68 +57,121 @@ class Stream(ABC):
         pass
 
 class InputStream(Stream):
-    def __init__(self, address):
+    def __init__(self, address, identity):
         super().__init__(address)
+        self.identity = identity
 
     def start(self):
         self.context = zmq.Context()
-        self.socket = self.context.socket(zmq.REQ)
+        self.socket = self.context.socket(zmq.DEALER)
+        self.socket.setsockopt(zmq.IDENTITY, self.identity)
         self.socket.connect(self.address)
 
     def recv(self):
         self.socket.send(b"req")
-
-        md = self.socket.recv_json()
+        x = self.socket.recv_multipart()
+        md = json.loads(x[0].decode('utf-8'))
         sync = md["sync"]
         if (md["type"] == "ndarray"):
-            return self.recv_array(md), sync
+            buf = memoryview(x[1])
+            A = np.frombuffer(buf, dtype=md['dtype']).reshape(md['shape'])
+            return A, sync
         else:
             assert(md["type"] == "json")
-            msg = self.socket.recv_json()
+            msg = json.loads(x[1].decode('utf-8'))
             return msg, sync
-        
-    def recv_array(self, md, flags=0, copy=True, track=False):
-        """recv a numpy array"""
-        msg = self.socket.recv(flags=flags, copy=copy, track=track)
-        buf = memoryview(msg)
-        A = np.frombuffer(buf, dtype=md['dtype'])
-        return A.reshape(md['shape'])
 
 class OutputStream(Stream):
-    def __init__(self, address, num_outputs=1):
+    def __init__(self, address, identities):
         super().__init__(address)
-
-        self.num_outputs = num_outputs
+        assert type(identities) is list and len(identities) > 0
+        self.identities = identities
+        self.num_outputs = len(self.identities)
     
     def start(self):
         self.context = zmq.Context()
-        self.socket = self.context.socket(zmq.REP)
+        self.socket = self.context.socket(zmq.ROUTER)
         self.socket.bind(self.address)
 
     def send(self, msg=None, sync=None):
-        for i in range(self.num_outputs):
-            req = self.socket.recv()
+        remaining = self.identities.copy()
+        while len(remaining) > 0:
+            identity, req = self.socket.recv_multipart()
+            assert req == b"req" and identity in remaining
+            remaining.remove(identity)
+
+        for i, identity in enumerate(self.identities):
             if type(msg) == np.ndarray:
-                self.send_array(msg, sync, copy=False)
+                md = dict(
+                    type = "ndarray",
+                    dtype = str(msg.dtype),
+                    shape = msg.shape,
+                    sync = sync
+                )
+                self.socket.send_multipart([identity, json.dumps(md).encode('utf-8'), msg])
             else:
-                self.send_json(msg, sync)
+                md = dict(
+                    type = "json",
+                    sync = sync
+                )
+                self.socket.send_multipart([identity, json.dumps(md).encode('utf-8'), json.dumps(msg).encode('utf-8')])
 
-    def send_array(self, A, sync=None, flags=0, copy=True, track=False):
-        """send a numpy array with metadata"""
-        md = dict(
-            type = "ndarray",
-            dtype = str(A.dtype),
-            shape = A.shape,
-            sync = sync
-        )
-        self.socket.send_json(md, flags|zmq.SNDMORE)
-        return self.socket.send(A, flags, copy=copy, track=track)
+class AsyncInputStream(Stream):
+    def __init__(self, address, identity):
+        super().__init__(address)
+        self.identity = identity
 
-    def send_json(self, j, sync=None, flags=0):
-        md = dict(
-            type = "json",
-            sync = sync
-        )
+    def start(self):
+        self.context = zmq.asyncio.Context()
+        self.socket = self.context.socket(zmq.DEALER)
+        self.socket.setsockopt(zmq.IDENTITY, self.identity)
+        self.socket.connect(self.address)
 
-        self.socket.send_json(md, flags|zmq.SNDMORE)
-        self.socket.send_json(j)
+    async def recv(self):
+        await self.socket.send(b"req")
+        x = await self.socket.recv_multipart()
+        md = json.loads(x[0].decode('utf-8'))
+        sync = md["sync"]
+        if (md["type"] == "ndarray"):
+            buf = memoryview(x[1])
+            A = np.frombuffer(buf, dtype=md['dtype']).reshape(md['shape'])
+            return A, sync
+        else:
+            assert(md["type"] == "json")
+            msg = json.loads(x[1].decode('utf-8'))
+            return msg, sync
+
+class AsyncOutputStream(Stream):
+    def __init__(self, address, identities):
+        super().__init__(address)
+        assert type(identities) is list and len(identities) > 0
+        self.identities = identities
+        self.num_outputs = len(self.identities)
+    
+    def start(self):
+        self.context = zmq.asyncio.Context()
+        self.socket = self.context.socket(zmq.ROUTER)
+        self.socket.bind(self.address)
+
+    async def send(self, msg=None, sync=None):
+        remaining = self.identities.copy()
+        while len(remaining) > 0:
+            identity, req = await self.socket.recv_multipart()
+            assert req == b"req" and identity in remaining
+            remaining.remove(identity)
+
+        for i, identity in enumerate(self.identities):
+            if type(msg) == np.ndarray:
+                md = dict(
+                    type = "ndarray",
+                    dtype = str(msg.dtype),
+                    shape = msg.shape,
+                    sync = sync
+                )
+                await self.socket.send_multipart([identity, json.dumps(md).encode('utf-8'), msg])
+            else:
+                md = dict(
+                    type = "json",
+                    sync = sync
+                )
+                await self.socket.send_multipart([identity, json.dumps(md).encode('utf-8'), json.dumps(msg).encode('utf-8')])

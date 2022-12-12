@@ -68,6 +68,9 @@ class Exercise(ABC):
     def transform(self, angles):
         pass
 
+    def filter(self, pose):
+        return va.pose.filter_keypoints(pose, self.keypoints())
+
     def keypoints(self, side=None):
         if side is Side.LEFT or self.side is Side.LEFT:
             return self.left_keypoints
@@ -92,7 +95,7 @@ class Exercise(ABC):
                     self._curr_frames_side_detected += 1
             self.side = side
 
-        filtered = va.pose.filter_keypoints(pose, self.keypoints())
+        filtered = self.filter(pose)
         if np.isnan(filtered).any():
             if len(self.window) > 0:
                 assert not np.isnan(self.window[-1].any())
@@ -109,6 +112,10 @@ class Exercise(ABC):
         self.pose = filtered
 
         angles = self.angles(filtered)
+        if len(self.rep) > 0 and len(self.rep[0]) > 5:
+            for k in range(angles.shape[0]):
+                angles[k] = (np.median([self.rep[k][t] for t in range(-6, -1)]) + angles[k]) / 2
+
         if self.in_rep:
             for k in range(angles.shape[0]):
                 self.rep[k].append(angles[k])
@@ -134,6 +141,7 @@ class Exercise(ABC):
         if self.in_rep:
             labels, corrected_angles = self.correct()
             corrected_pose = self.transform(corrected_angles)
+            # pose = self.transform(np.array([self.rep[k][-1] for k in range(len(self.rep))])) 
             return va.feedback.to_json(
                 user_pose=self.pose,
                 labels=labels,
@@ -159,6 +167,7 @@ class BodyweightSquat(Exercise):
         self._knee_to_neck_min_good = math.radians(90)
         self._hip_to_ankle_min_good = math.radians(90)
         self._max_percent_diff = 0.15
+        self._max_frames_side_detected = 10
 
     def started(self, angles):
         return (np.pi - angles[2]) < self._knee_to_neck_limit
@@ -198,14 +207,20 @@ class BodyweightSquat(Exercise):
         labels = [va.feedback.KeypointResult.GOOD for _ in range(self.pose.shape[0])]
         corrected_angles = user_angles[:]
         if len(self.rep[0]) > 1:
-            dt = 1.0 / 10.0
-            diff = ((np.pi - user_angles[2]) - (np.pi - self.rep[2][-2])) / dt
-            if abs(diff) < self._knee_to_neck_prev_diff_limit:
-                x = (((np.pi - user_angles[2]) - self._knee_to_neck_min_good) / self._knee_to_neck_min_good)
-                if x < 0 and abs(x) > self._max_percent_diff:
-                    print('bad!')
-                    labels = [va.feedback.KeypointResult.BAD for _ in range(self.pose.shape[0])]
-                    corrected_angles = [self._space_to_knee_min_good, self._hip_to_ankle_min_good, self._knee_to_neck_min_good]
+            # print(np.degrees(np.pi - user_angles))
+            # dt = 1.0 / 10.0
+            # diff = ((np.pi - user_angles[2]) - (np.pi - self.rep[2][-2])) / dt
+            # if abs(diff) < self._knee_to_neck_prev_diff_limit:
+            #     x = (((np.pi - user_angles[2]) - self._knee_to_neck_min_good) / self._knee_to_neck_min_good)
+            #     if x < 0 and abs(x) > self._max_percent_diff:
+            #         print('bad!')
+            #         labels = [va.feedback.KeypointResult.BAD for _ in range(self.pose.shape[0])]
+                    # corrected_angles = [self._space_to_knee_min_good, self._hip_to_ankle_min_good, self._knee_to_neck_min_good]
+            # print(np.degrees(np.pi - user_angles[2]))
+            if (np.pi - user_angles[2]) < math.radians(70):
+                print('bad!')
+                labels = [va.feedback.KeypointResult.BAD for _ in range(self.pose.shape[0])]
+                corrected_angles = [self._space_to_knee_min_good, self._hip_to_ankle_min_good, self._knee_to_neck_min_good]
 
         return labels, corrected_angles
 
@@ -238,20 +253,22 @@ class BicepCurl(Exercise):
             exercise_type=ExerciseType.BC,
             right_keypoints=[Keypoints.NECK, Keypoints.RHIP, Keypoints.RSHOULDER, Keypoints.RELBOW, Keypoints.RWRIST],
             left_keypoints=[Keypoints.NECK, Keypoints.LHIP, Keypoints.LSHOULDER, Keypoints.LELBOW, Keypoints.LWRIST],
-            topology=[[0, 2], [1, 2], [2, 3], [3, 4]]
+            topology=[[0, 2], [1, 2], [2, 3], [3, 4]],
+            window_size=2
         )
         self._angle_mask = np.array([False, True, True, True, True], dtype=np.bool)
         self._shoulder_wrist_limit = math.radians(120)
         self._shoulder_wrist_diff_limit = 0.3
         self._shoulder_wrist_min_good = math.radians(30)
-        self._hip_to_elbow_min_good = math.radians(6)
+        self._hip_to_elbow_min_good = math.radians(12)
+        self._hip_to_elbow_min_limit = math.radians(15)
         self._max_percent_diff = 0.1
 
     def started(self, angles):
         return (np.pi - angles[1]) < self._shoulder_wrist_limit
 
     def finished(self, angles):
-        return (np.pi - angles[1]) >= self._shoulder_wrist_limit
+        return (np.pi - angles[1]) >= self._shoulder_wrist_limit and len(self.rep[0]) > 10
 
     def detect_side(self, pose):
         shoulder = 2
@@ -285,14 +302,17 @@ class BicepCurl(Exercise):
         labels = [va.feedback.KeypointResult.GOOD for _ in range(self.pose.shape[0])]
         corrected_angles = user_angles[:]
         if len(self.rep[0]) > 1:
-            dt = 1.0 / 10.0
-            diff = ((np.pi - user_angles[1]) - (np.pi - self.rep[1][-2])) / dt
-            if abs(diff) < self._shoulder_wrist_diff_limit:
-                x = (((np.pi - user_angles[0]) - self._hip_to_elbow_min_good) / self._hip_to_elbow_min_good)
-                if x > 0 and x > self._max_percent_diff:
-                    print('bad!')
-                    labels = [va.feedback.KeypointResult.BAD for _ in range(self.pose.shape[0])]
-                    corrected_angles = [np.pi - self._hip_to_elbow_min_good, np.pi - self._shoulder_wrist_min_good]
+            # dt = 1.0 / 10.0
+            # diff = ((np.pi - user_angles[1]) - (np.pi - self.rep[1][-2])) / dt
+            x = (((np.pi - user_angles[0]) - self._hip_to_elbow_min_limit) / self._hip_to_elbow_min_limit)
+            # print(np.degrees(np.pi - user_angles[0]))
+            if x > 0 and x > self._max_percent_diff:
+                print('bad!')
+                labels = [va.feedback.KeypointResult.BAD for _ in range(self.pose.shape[0])]
+                if self.side is Side.LEFT:
+                    corrected_angles = [np.pi - self._hip_to_elbow_min_good, user_angles[1]]
+                else:
+                    corrected_angles = [-self._hip_to_elbow_min_good, -user_angles[1]]
         return labels, corrected_angles
             
     def transform(self, angles):
@@ -327,7 +347,8 @@ class PushUp(Exercise):
             exercise_type=ExerciseType.PU,
             right_keypoints=[Keypoints.RANKLE, Keypoints.RKNEE, Keypoints.RHIP, Keypoints.NECK, Keypoints.RSHOULDER, Keypoints.RELBOW, Keypoints.RWRIST],
             left_keypoints=[Keypoints.LANKLE, Keypoints.LKNEE, Keypoints.LHIP, Keypoints.NECK, Keypoints.LSHOULDER, Keypoints.LELBOW, Keypoints.LWRIST],
-            topology=[[0, 1], [1, 2], [2, 4], [4, 3], [4, 5], [5, 6]]
+            topology=[[0, 1], [1, 2], [2, 4], [4, 3], [4, 5], [5, 6]],
+            window_size=3
         )
         self._space_neck_limit = math.radians(20)
         
@@ -341,7 +362,10 @@ class PushUp(Exercise):
 
         self._shoulder_wrist_good = math.radians(90)
         self._space_elbow_good = math.radians(45)
-    
+
+        self._prev_elbow_pos = None
+        self._prev_wrist_pos = None
+        
     def started(self, angles):
         if self._initial_arm_link_lengths is None:
             initial_pose = self.pose.copy()
@@ -363,7 +387,39 @@ class PushUp(Exercise):
                 print('bad')
 
         self._shoulder_wrist_frames_from_start_curr += 1
-        return angles[0] >= self._space_neck_limit
+        return angles[0] >= self._space_neck_limit and self._shoulder_wrist_frames_from_start_curr > self._shoulder_wrist_frames_from_start
+
+    def filter(self, pose):
+        filtered = super().filter(pose)
+        if self._prev_elbow_pos is not None and self._prev_wrist_pos is not None:
+            dt = 1.0 / 10.0
+            for i in range(2):
+                diff = (filtered[5, i] - self._prev_elbow_pos[i]) / dt
+                if abs(diff) > 0.8:
+                    # print('elbow moving too much, using prev')
+                    filtered[5, i] = self._prev_elbow_pos[i]
+                elif not np.isnan(filtered[5, :]).any():
+                    self._prev_elbow_pos[i] = (filtered[5, i] + self._prev_elbow_pos[i]) / 2
+
+                diff = (filtered[6, i] - self._prev_wrist_pos[i]) / dt
+                if abs(diff) > 0.5:
+                    # print('wrist moving too much, using prev')
+                    filtered[6, i] = self._prev_wrist_pos[i]
+                elif not np.isnan(filtered[6, :]).any():
+                    self._prev_wrist_pos[i] = (filtered[6, i] + self._prev_wrist_pos[i]) / 2
+
+        elif len(self.window) >= self.window_size:
+            print('calculating prev')
+            elbow = np.array([self.window[t][5, :] for t in range(self.window_size)])
+            elbow = np.mean(elbow, axis=0)
+            if not np.isnan(elbow).any():
+                self._prev_elbow_pos = elbow
+
+            wrist = np.array([self.window[t][6, :] for t in range(self.window_size)])
+            wrist = np.mean(wrist, axis=0)
+            if not np.isnan(wrist).any():
+                self._prev_wrist_pos = wrist
+        return filtered
 
     def detect_side(self, pose):
         hip = 2
@@ -401,7 +457,8 @@ class PushUp(Exercise):
         user_angles = np.array([self.rep[feature][-1] for feature in range(num_angles)])
 
         if not self._shoulder_wrist_correct:
-            labels = [va.feedback.KeypointResult.BAD for _ in range(self.pose.shape[0])]
+            # labels = [va.feedback.KeypointResult.BAD for _ in range(self.pose.shape[0])]
+            labels[4:] = [va.feedback.KeypointResult.BAD, va.feedback.KeypointResult.BAD, va.feedback.KeypointResult.BAD]
             user_angles[1] = self._space_elbow_good
             user_angles[2] = self._shoulder_wrist_good
 
@@ -433,6 +490,7 @@ class PushUp(Exercise):
         _corrected_pose = va.pose.transform(zero_pose, Slist, joint_angles)
         corrected_pose = self.pose.copy()
         corrected_pose[4:6, :] = _corrected_pose[0:2, :]
+        corrected_pose[6, 0] = self.pose[4, 0]
 
         return corrected_pose
 

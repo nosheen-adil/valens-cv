@@ -113,5 +113,10 @@ RUN cd ${SRC_DIR}/opencv/build && \
     ldconfig && \
     make clean && apt-get update
 
+RUN python3 -m pip install \
+    modern_robotics \
+    scipy \
+    sklearn
+
 RUN rm -rf ${SRC_DIR} && \
     echo "Dependencies built and installed"

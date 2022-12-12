@@ -223,7 +223,7 @@ def test_pipeline_aws_sink_feedback_bs():
         pipeline = va.pipeline.Pipeline()
         pipeline.add(PoseSource(max_fps=10))
         pipeline.add(FeedbackFilter())
-        pipeline.add(AwsSink(publish=True))
+        pipeline.add(AwsSink(publish=False))
         pipeline.loop()
 
     def _client():
@@ -261,7 +261,7 @@ def test_pipeline_aws_sink_feedback_bc():
         pipeline = va.pipeline.Pipeline()
         pipeline.add(PoseSource(max_fps=10))
         pipeline.add(FeedbackFilter())
-        pipeline.add(AwsSink(publish=True))
+        pipeline.add(AwsSink(publish=False))
         pipeline.loop()
 
     def _client():
@@ -299,13 +299,13 @@ def test_pipeline_aws_sink_feedback_pu():
         pipeline = va.pipeline.Pipeline()
         pipeline.add(PoseSource(max_fps=10))
         pipeline.add(FeedbackFilter())
-        pipeline.add(AwsSink(publish=True))
+        pipeline.add(AwsSink(publish=False))
         pipeline.loop()
 
     def _client():
         cases = [
             'PU_good_1', 'PU_good_2', 'PU_good_3',
-            'PU_bad_1', 'PU_bad_2', 'PU_bad_4'
+            'PU_bad_1', 'PU_bad_4'
         ]
         random.shuffle(cases)
         client = va.pipeline.Client()

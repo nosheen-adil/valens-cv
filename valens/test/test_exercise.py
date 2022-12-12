@@ -81,11 +81,57 @@ def test_exercise_bs_correct_bad():
         assert false_count > 0
 
 def test_exercise_bs_correct_good():
-    cases = ['BS_good_1', 'BS_good_2', 'BS_good_3', 'BS_good_4']
+    cases = ['BS_bad_4']
+    #  cases = ['BS_good_1', 'BS_good_2', 'BS_good_3', 'BS_good_4']
     for case in cases:
         print('case: ', case)
         exercise = va.exercise.load('BS')
-        with h5py.File(va.constants.DATA_DIR + '/sequences/' + case + '.h5', 'r') as data:
+        with h5py.File(va.constants.DATA_DIR + '/sequences/shashank/' + case + '.h5', 'r') as data:
+            seq = data['pose'][:]
+
+        T = seq.shape[-1]
+        print(T)
+        false_count = 0
+        for t in range(T):
+            pose = seq[:, :, t]
+            exercise.fit(pose)
+            result = exercise.predict()
+            if result is not None and 'feedback' in result:
+                for feedback in result['feedback'].values():
+                    if feedback['correct'] is False:
+                        false_count += 1
+
+        assert false_count == 0
+
+def test_exercise_shashank_bs_correct_bad():
+    cases = ['BS_bad_1', 'BS_bad_4']
+    #  cases = ['BS_good_1', 'BS_good_2', 'BS_good_3', 'BS_good_4']
+    for case in cases:
+        print('case: ', case)
+        exercise = va.exercise.load('BS')
+        with h5py.File(va.constants.DATA_DIR + '/sequences/shashank/' + case + '.h5', 'r') as data:
+            seq = data['pose'][:]
+
+        T = seq.shape[-1]
+        print(T)
+        false_count = 0
+        for t in range(T):
+            pose = seq[:, :, t]
+            exercise.fit(pose)
+            result = exercise.predict()
+            if result is not None and 'feedback' in result:
+                for feedback in result['feedback'].values():
+                    if feedback['correct'] is False:
+                        false_count += 1
+
+        assert false_count == 0
+
+def test_exercise_shashank_bs_correct_good():
+    cases = ['BS_good_1', 'BS_good_2']
+    for case in cases:
+        print('case: ', case)
+        exercise = va.exercise.load('BS')
+        with h5py.File(va.constants.DATA_DIR + '/sequences/shashank/' + case + '.h5', 'r') as data:
             seq = data['pose'][:]
 
         T = seq.shape[-1]

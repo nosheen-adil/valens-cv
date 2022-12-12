@@ -15,20 +15,25 @@ import trt_pose.coco
 from trt_pose.parse_objects import ParseObjects
 
 class PoseFilter(Node):
-    def __init__(self, frame_address=gen_addr_ipc("frame"), pose_address=gen_addr_ipc("pose"), model_path=constants.POSE_MODEL_TRT_WEIGHTS, pose_path=constants.POSE_JSON):
-        super().__init__("PoseFilter", topics=['frame'])
-        # self.input_streams["frame"] = InputStream(frame_address)
-        # self.output_streams["pose"] = OutputStream(pose_address)
-
+    def __init__(self, model_path=constants.POSE_MODEL_TRT_WEIGHTS, pose_path=constants.POSE_JSON):
+        super().__init__("PoseFilter")
         self.model_path = model_path
         self.pose_path = pose_path
         self.model_trt = None
         self.mean = None
         self.std = None
         self.prev = None
+        self.set_id = None
+
+        self.input_streams['frame'] = InputStream(gen_addr_ipc('frame'), identity=b'0')
+        self.output_streams['pose'] = OutputStream(gen_addr_ipc('pose'), identities=[b'0'])
 
     def reset(self):
         self.prev = None
+        self.set_id = None
+
+    def configure(self, request):
+        self.set_id = request['set_id']
 
     def load(self):
         with open(self.pose_path, 'r') as f:
@@ -45,27 +50,28 @@ class PoseFilter(Node):
         self.std = torch.Tensor([0.229, 0.224, 0.225]).cuda()
 
         data = torch.zeros((1, 3, constants.POSE_MODEL_WIDTH, constants.POSE_MODEL_HEIGHT)).cuda()
-        self.model_trt(data)
+        for _ in range(5):
+            self.model_trt(data)
 
     def process(self):
-        data = self.bus.recv('frame', timeout=self.timeout)
-        if data is False:
-            return
-        sync, frame = data
-        # frame, sync = self.input_streams["frame"].recv()
-        # if frame is None:
-        #     # self.stop()
-        #     return
-
+        frame, sync = self.input_streams['frame'].recv()
+        if frame is None:
+            print('PoseFilter: detected frame sentinel')
+            self.output_streams['pose'].send()
+            return True
+        
+        # print('PoseFilter: sending')
+        frame = cv2.resize(frame, dsize=(constants.POSE_MODEL_WIDTH, constants.POSE_MODEL_HEIGHT))
         data = self.preprocess(frame)
         cmap, paf = self.model_trt(data)
         cmap, paf = cmap.detach().cpu(), paf.detach().cpu()
         counts, objects, peaks = self.parse_objects(cmap, paf)
+        # print('PoseFilter: stopping')
         pose = va.pose.nn_to_numpy(counts, objects, peaks, prev=self.prev)
         self.prev = pose.copy()
-        # self.output_streams["pose"].send(pose, sync)
-        self.bus.send('pose', pose, sync)
-        
+        sync['fps'] = self.average_fps()
+        self.output_streams['pose'].send(pose, sync)
+
     def preprocess(self, frame):
         global device
         device = torch.device('cuda')
