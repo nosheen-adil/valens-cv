@@ -17,20 +17,11 @@ if __name__ == '__main__':
     sequences_dir = va.constants.DATA_DIR + '/sequences/shashank'
     recordings_dir = va.constants.DATA_DIR + '/recordings/shashank'
     outputs_dir = va.constants.DATA_DIR + '/outputs/shashank'
-    # sequences_dir = va.constants.DATA_DIR + '/sequences'
-    # recordings_dir = va.constants.DATA_DIR + '/recordings'
-    # outputs_dir = va.constants.DATA_DIR + '/outputs/test'
 
     proxy = Process(target=va.bus.proxy)
     proxy.start()
     bus = va.bus.MessageBus()
     bus.subscribe('finished')
-    # nodes = [
-    #     VideoSource(max_fps=10, num_outputs=1),
-    #     PoseSource(max_fps=10, input_dir=sequences_dir),
-    #     FeedbackFilter(output_frame=True, output_feedback=False, is_live=False),
-    #     Mp4FileSink(output_dir=outputs_dir)
-    # ]
     nodes = [
         VideoSource(max_fps=15, num_outputs=2),
         PoseFilter(),
