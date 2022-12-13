@@ -30,3 +30,5 @@ valens/data/tmp/
 valens/data/aws/
 valens/data/feedback/
 valens/dtw.cpp
+
+.DS_Store
